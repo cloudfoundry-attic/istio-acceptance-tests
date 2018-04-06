@@ -82,7 +82,6 @@ var _ = BeforeSuite(func() {
 			"--allow-insecure-localhost",
 		}),
 	)
-
 	Expect(agoutiDriver.Start()).To(Succeed())
 })
 
