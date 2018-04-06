@@ -1,7 +1,7 @@
 {
   "cf_api": "bosh-lite.com",
   "cf_admin_user": "admin",
-  "cf_admin_password": "033b1z63lrgwje6cfg8u",
+  "cf_admin_password": "2amayn6a1k30sf22e2ws",
   "cf_apps_domain": "apps.internal",
   "product_page_docker_tag": "zlav/examples-bookinfo-productpage-v1:1.0.0",
   "reviews_docker_tag": "zlav/examples-bookinfo-reviews-v3:1.0.0",
