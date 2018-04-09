@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 
-go install github.com/istio-acceptance-tests/vendor/github.com/onsi/ginkgo/ginkgo
+go install code.cloudfoundry.org/istio-acceptance-tests/vendor/github.com/onsi/ginkgo/ginkgo
 
 ginkgo -r -failOnPending -randomizeAllSpecs -p "$@"
