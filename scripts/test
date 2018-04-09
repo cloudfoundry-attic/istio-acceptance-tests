@@ -1,3 +1,5 @@
-#! /bin/bash
+#!/bin/bash
 
-ginkgo -r -v -race -randomizeAllSpecs
+go install code.cloudfoundry.org/istio-acceptance-tests/vendor/github.com/onsi/ginkgo/ginkgo
+
+ginkgo -r -failOnPending -randomizeAllSpecs -p "$@"
