@@ -23,8 +23,29 @@ var (
 	agoutiDriver   *agouti.WebDriver
 	c              config.Config
 	defaultTimeout = 120 * time.Second
-	org, space     = "ISTIO-ORG", "ISTIO-SPACE"
 )
+
+type testUser struct {
+	config.Config
+}
+
+func (tu testUser) Username() string {
+	return tu.Username
+}
+
+func (tu testUser) Password() string {
+	tu.Password
+}
+
+type testWorkspace struct{}
+
+func (tw testWorkspace) OrganizationName() string {
+	return "ISTIO-ORG"
+}
+
+func (tw testWorkspace) SpaceName() string {
+	return "ISTIO-SPACE"
+}
 
 var _ = BeforeSuite(func() {
 	var err error
@@ -34,21 +55,20 @@ var _ = BeforeSuite(func() {
 	c, err = config.NewConfig(configPath)
 	Expect(err).ToNot(HaveOccurred())
 
-	apiCmd := cf.Cf("api", fmt.Sprintf("api.%s", c.ApiEndpoint), "--skip-ssl-validation").Wait(defaultTimeout)
-	Expect(apiCmd).To(Exit(0))
+	tw := testWorkspace{}
 
-	loginCmd := cf.Cf("auth", c.AdminUser, c.AdminPassword).Wait(defaultTimeout)
-	Expect(loginCmd).To(Exit(0))
+	uc := workflowhelpers.NewUserContext(fmt.Sprintf("api.%s", c.ApiEndpoint), testUser{c}, tw, true, defaultTimeout)
+	uc.Login()
+
+	orgCmd := cf.Cf("create-org", tw.OrganizationName()).Wait(defaultTimeout)
+	Expect(orgCmd).To(Exit(0))
+	spaceCmd := cf.Cf("create-space", "-o", tw.OrganizationName(), tw.SpaceName()).Wait(defaultTimeout)
+	Expect(spaceCmd).To(Exit(0))
 
 	enableDockerCmd := cf.Cf("enable-feature-flag", "diego_docker").Wait(defaultTimeout)
 	Expect(enableDockerCmd).To(Exit(0))
 
-	orgCmd := cf.Cf("create-org", org).Wait(defaultTimeout)
-	Expect(orgCmd).To(Exit(0))
-	spaceCmd := cf.Cf("create-space", "-o", org, space).Wait(defaultTimeout)
-	Expect(spaceCmd).To(Exit(0))
-	targetCmd := cf.Cf("target", "-o", org, "-s", space).Wait(defaultTimeout)
-	Expect(targetCmd).To(Exit(0))
+	uc.TargetSpace()
 
 	productPagePush := cf.Cf("push", "productpage", "-o", c.ProductPageDockerWithTag, "-d", c.ApiEndpoint).Wait(defaultTimeout)
 	Expect(productPagePush).To(Exit(0))
