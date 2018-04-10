@@ -1,6 +1,7 @@
 package bookinfo_demo
 
 import (
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -27,7 +28,7 @@ var _ = Describe("DemoAcceptance", func() {
 	var _ = Describe("Bookinfo Pages", func() {
 		Context("Product Page", func() {
 			BeforeEach(func() {
-				Expect(page.Navigate("http://productpage.bosh-lite.com")).To(Succeed())
+				Expect(page.Navigate(fmt.Sprintf("http://productpage.%s", os.GetEnv("API_DOMAIN"))).To(Succeed()))
 			})
 
 			It("can be visited", func() {
@@ -38,9 +39,12 @@ var _ = Describe("DemoAcceptance", func() {
 			It("has the correct internal addresses", func() {
 				html, err := page.HTML()
 				Expect(err).NotTo(HaveOccurred())
-				Expect(html).To(ContainSubstring("http://details.apps.internal:9080"))
-				Expect(html).To(ContainSubstring("http://reviews.apps.internal:9080"))
-				Expect(html).To(ContainSubstring("http://ratings.apps.internal:9080"))
+
+				internalDomain := os.GetEnv("INTERNAL_DOMAIN")
+
+				Expect(html).To(ContainSubstring(fmt.Sprintf("http://details.%s:9080", internalDomain)))
+				Expect(html).To(ContainSubstring(fmt.Sprintf("http://reviews.%s:9080", internalDomain)))
+				Expect(html).To(ContainSubstring(fmt.Sprintf("http://ratings.%s:9080", internalDomain)))
 			})
 
 			It("links to the normal and test users", func() {
