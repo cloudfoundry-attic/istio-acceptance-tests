@@ -4,41 +4,34 @@ app](https://istio.io/docs/guides/bookinfo.html) on Cloud Foundry and ensuring
 that it works with new updates
 
 ### Prerequisites
-- Go should be installed and in the PATH
-- GOPATH should be set as described in http://golang.org/doc/code.html
+- Working installation of Go
+- Valid `$GOPATH`
 
-### Setup
+# Deploy a bosh with
+- bosh-dns
+  - [use-bosh-dns.yml](https://github.com/cloudfoundry/cf-deployment/blob/master/operations/experimental/use-bosh-dns.yml)
+- Service discovery enabled (ops-files below)
+  - [use-bosh-dns-for-containers.yml](https://github.com/cloudfoundry/cf-deployment/blob/master/operations/experimental/use-bosh-dns-for-containers.yml)
+  - [enable-service-discovery.yml](https://github.com/cloudfoundry/cf-deployment/blob/master/operations/experimental/enable-service-discovery.yml)
 
-# deploy a bosh-lite ?Just bosh? with service discovery
 
-# ?Vendor Packages?
-
-# create a config file
-'{  
+# Create a config file
+```sh
+cat << EOF > "${PWD}/config.json"
+{
 	"cf_api": "bosh-lite.com",
 	"cf_admin_user": "admin",
-	"cf_admin_password": <Admin password from the bosh deployment>,
+	"cf_admin_password": <admin password>,
 	"cf_apps_domain": "apps.internal",
-	"product_page_docker_tag": "<dockerhub username>/<productpage image>:<version tag>",
-	"reviews_docker_tag": "<dockerhub username>/<reviews image>:<version tag>",
-	"ratings_docker_tag": "<dockerhub username>/<ratings image>:<version tag>",
-	"details_docker_tag": "<dockerhub username>/<details image>:<version tag>",
-}'
-
--	Current working username: zlav
-- Current working images
-	- examples-bookinfo-productpage-v1:1.0.0
-	- examples-bookinfo-reviews-v3:3.0.0
-	- examples-bookinfo-ratings-v1:1.0.0
-	- examples-bookinfo-details-v1:1.0.0
-
-## Demo the productpage
-
-Run the script we havent built
+	"product_page_docker_tag": "cfrouting/examples-bookinfo-productpage-v1:latest",
+	"reviews_docker_tag": "cfrouting/examples-bookinfo-reviews-v3:latest",
+	"ratings_docker_tag": "istio/examples-bookinfo-ratings-v1:1.5.0",
+	"details_docker_tag": "istio/examples-bookinfo-details-v1:1.5.0",
+}
+EOF
+```
 
 ## Running Tests
-
-
-
-# run all tests
-'CONFIG="$PWD/config.json"'
+```sh
+CONFIG="$PWD/config.json" scripts/test
+```
