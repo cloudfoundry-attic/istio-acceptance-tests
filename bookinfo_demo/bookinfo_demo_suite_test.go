@@ -80,6 +80,7 @@ var _ = BeforeSuite(func() {
 			"--headless",
 			"--disable-gpu",
 			"--allow-insecure-localhost",
+			"--no-sandbox",
 		}),
 	)
 	Expect(agoutiDriver.Start()).To(Succeed())
