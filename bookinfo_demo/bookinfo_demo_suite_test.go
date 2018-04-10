@@ -8,6 +8,7 @@ import (
 
 	"code.cloudfoundry.org/istio-acceptance-tests/config"
 	"github.com/cloudfoundry-incubator/cf-test-helpers/cf"
+	"github.com/cloudfoundry-incubator/cf-test-helpers/workflowhelpers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gexec"
@@ -30,11 +31,11 @@ type testUser struct {
 }
 
 func (tu testUser) Username() string {
-	return tu.Username
+	return tu.AdminUser
 }
 
 func (tu testUser) Password() string {
-	tu.Password
+	return tu.AdminPassword
 }
 
 type testWorkspace struct{}
@@ -115,7 +116,7 @@ var _ = AfterSuite(func() {
 	Expect(cleanUpRatings).To(Exit(0))
 	cleanUpDetails := cf.Cf("delete", "details", "-f", "-r").Wait(defaultTimeout)
 	Expect(cleanUpDetails).To(Exit(0))
-	cleanUpCmd := cf.Cf("delete-org", org, "-f").Wait(defaultTimeout)
+	cleanUpCmd := cf.Cf("delete-org", testWorkspace{}.OrganizationName(), "-f").Wait(defaultTimeout)
 	Expect(cleanUpCmd).To(Exit(0))
 	Expect(agoutiDriver.Stop()).To(Succeed())
 })
