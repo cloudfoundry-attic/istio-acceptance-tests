@@ -29,7 +29,7 @@ var _ = Describe("DemoAcceptance", func() {
 	var _ = Describe("Bookinfo Pages", func() {
 		Context("Product Page", func() {
 			BeforeEach(func() {
-				Expect(page.Navigate(fmt.Sprintf("http://productpage.%s", os.Getenv("API_DOMAIN"))).To(Succeed()))
+				Expect(page.Navigate(fmt.Sprintf("http://productpage.%s", os.Getenv("API_DOMAIN")))).To(Succeed())
 			})
 
 			It("can be visited", func() {
