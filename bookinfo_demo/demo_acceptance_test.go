@@ -2,6 +2,7 @@ package bookinfo_demo
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -28,7 +29,7 @@ var _ = Describe("DemoAcceptance", func() {
 	var _ = Describe("Bookinfo Pages", func() {
 		Context("Product Page", func() {
 			BeforeEach(func() {
-				Expect(page.Navigate(fmt.Sprintf("http://productpage.%s", os.GetEnv("API_DOMAIN"))).To(Succeed()))
+				Expect(page.Navigate(fmt.Sprintf("http://productpage.%s", os.Getenv("API_DOMAIN"))).To(Succeed()))
 			})
 
 			It("can be visited", func() {
@@ -40,7 +41,7 @@ var _ = Describe("DemoAcceptance", func() {
 				html, err := page.HTML()
 				Expect(err).NotTo(HaveOccurred())
 
-				internalDomain := os.GetEnv("INTERNAL_DOMAIN")
+				internalDomain := os.Getenv("INTERNAL_DOMAIN")
 
 				Expect(html).To(ContainSubstring(fmt.Sprintf("http://details.%s:9080", internalDomain)))
 				Expect(html).To(ContainSubstring(fmt.Sprintf("http://reviews.%s:9080", internalDomain)))
