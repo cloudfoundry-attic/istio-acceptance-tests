@@ -58,7 +58,7 @@ var _ = BeforeSuite(func() {
 
 	tw := testWorkspace{}
 
-	uc := workflowhelpers.NewUserContext(fmt.Sprintf("api.%s", c.ApiEndpoint), testUser{c}, tw, true, defaultTimeout)
+	uc := workflowhelpers.NewUserContext(fmt.Sprintf("api.%s", c.CFLoginDomain), testUser{c}, tw, true, defaultTimeout)
 	uc.Login()
 
 	orgCmd := cf.Cf("create-org", tw.OrganizationName()).Wait(defaultTimeout)

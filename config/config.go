@@ -9,6 +9,7 @@ import (
 )
 
 type Config struct {
+	CFLoginDomain            string `json:"cf_login_domain"`
 	ApiEndpoint              string `json:"cf_api"`
 	AdminUser                string `json:"cf_admin_user"`
 	AdminPassword            string `json:"cf_admin_password"`
@@ -37,6 +38,9 @@ func (c Config) Validate() error {
 	missingProperties := []string{}
 	if c.ApiEndpoint == "" {
 		missingProperties = append(missingProperties, "cf_api")
+	}
+	if c.CFLoginDomain == "" {
+		missingProperties = append(missingProperties, "cf_login_domain")
 	}
 	if c.AdminUser == "" {
 		missingProperties = append(missingProperties, "cf_admin_user")
