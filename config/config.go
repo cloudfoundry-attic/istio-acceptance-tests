@@ -9,11 +9,11 @@ import (
 )
 
 type Config struct {
-	CFLoginDomain            string `json:"cf_login_domain"`
-	ApiEndpoint              string `json:"cf_api"`
+	CFSystemDomain           string `json:"cf_system_domain"`
+	IstioDomain              string `json:"cf_istio_domain"`
 	AdminUser                string `json:"cf_admin_user"`
 	AdminPassword            string `json:"cf_admin_password"`
-	AppsDomain               string `json:"cf_apps_domain"`
+	CFInternalAppsDomain     string `json:"cf_internal_apps_domain"`
 	ProductPageDockerWithTag string `json:"product_page_docker_tag"`
 	ReviewsDockerWithTag     string `json:"reviews_docker_tag"`
 	RatingsDockerWithTag     string `json:"ratings_docker_tag"`
@@ -36,11 +36,11 @@ func NewConfig(path string) (Config, error) {
 
 func (c Config) Validate() error {
 	missingProperties := []string{}
-	if c.ApiEndpoint == "" {
-		missingProperties = append(missingProperties, "cf_api")
+	if c.IstioDomain == "" {
+		missingProperties = append(missingProperties, "cf_istio_domain")
 	}
-	if c.CFLoginDomain == "" {
-		missingProperties = append(missingProperties, "cf_login_domain")
+	if c.CFSystemDomain == "" {
+		missingProperties = append(missingProperties, "cf_system_domain")
 	}
 	if c.AdminUser == "" {
 		missingProperties = append(missingProperties, "cf_admin_user")
@@ -48,8 +48,8 @@ func (c Config) Validate() error {
 	if c.AdminPassword == "" {
 		missingProperties = append(missingProperties, "cf_admin_password")
 	}
-	if c.AppsDomain == "" {
-		missingProperties = append(missingProperties, "cf_apps_domain")
+	if c.CFInternalAppsDomain == "" {
+		missingProperties = append(missingProperties, "cf_internal_apps_domain")
 	}
 	if c.ProductPageDockerWithTag == "" {
 		c.ProductPageDockerWithTag = "istio/examples-bookinfo-productpage-v1:1.5.0"

@@ -55,10 +55,18 @@ var _ = BeforeSuite(func() {
 	fmt.Println(configPath)
 	c, err = config.NewConfig(configPath)
 	Expect(err).ToNot(HaveOccurred())
+	_, ok := os.LookupEnv("INTERNAL_DOMAIN")
+	if !ok {
+		os.Setenv("INTERNAL_DOMAIN", c.CFInternalAppsDomain)
+	}
+	_, ok = os.LookupEnv("API_DOMAIN")
+	if !ok {
+		os.Setenv("API_DOMAIN", c.IstioDomain)
+	}
 
 	tw := testWorkspace{}
 
-	uc := workflowhelpers.NewUserContext(fmt.Sprintf("api.%s", c.CFLoginDomain), testUser{c}, tw, true, defaultTimeout)
+	uc := workflowhelpers.NewUserContext(fmt.Sprintf("api.%s", c.CFSystemDomain), testUser{c}, tw, true, defaultTimeout)
 	uc.Login()
 
 	orgCmd := cf.Cf("create-org", tw.OrganizationName()).Wait(defaultTimeout)
@@ -71,20 +79,20 @@ var _ = BeforeSuite(func() {
 
 	uc.TargetSpace()
 
-	productPagePush := cf.Cf("push", "productpage", "-o", c.ProductPageDockerWithTag, "-d", c.ApiEndpoint).Wait(defaultTimeout)
+	productPagePush := cf.Cf("push", "productpage", "-o", c.ProductPageDockerWithTag, "-d", c.IstioDomain).Wait(defaultTimeout)
 	Expect(productPagePush).To(Exit(0))
-	ratingsPush := cf.Cf("push", "ratings", "-o", c.RatingsDockerWithTag, "-d", c.AppsDomain).Wait(defaultTimeout)
+	ratingsPush := cf.Cf("push", "ratings", "-o", c.RatingsDockerWithTag, "-d", c.CFInternalAppsDomain).Wait(defaultTimeout)
 	Expect(ratingsPush).To(Exit(0))
-	reviewsPush := cf.Cf("push", "reviews", "-o", c.ReviewsDockerWithTag, "-d", c.AppsDomain, "-u", "none").Wait(defaultTimeout)
+	reviewsPush := cf.Cf("push", "reviews", "-o", c.ReviewsDockerWithTag, "-d", c.CFInternalAppsDomain, "-u", "none").Wait(defaultTimeout)
 	Expect(reviewsPush).To(Exit(0))
-	detailsPush := cf.Cf("push", "details", "-o", c.DetailsDockerWithTag, "-d", c.AppsDomain).Wait(defaultTimeout)
+	detailsPush := cf.Cf("push", "details", "-o", c.DetailsDockerWithTag, "-d", c.CFInternalAppsDomain).Wait(defaultTimeout)
 	Expect(detailsPush).To(Exit(0))
 
-	setProductEnvVar := cf.Cf("set-env", "productpage", "SERVICES_DOMAIN", c.AppsDomain).Wait(defaultTimeout)
+	setProductEnvVar := cf.Cf("set-env", "productpage", "SERVICES_DOMAIN", c.CFInternalAppsDomain).Wait(defaultTimeout)
 	Expect(setProductEnvVar).To(Exit(0))
 	productRestage := cf.Cf("restage", "productpage").Wait(defaultTimeout)
 	Expect(productRestage).To(Exit(0))
-	setReviewsEnvVar := cf.Cf("set-env", "reviews", "SERVICES_DOMAIN", c.AppsDomain).Wait(defaultTimeout)
+	setReviewsEnvVar := cf.Cf("set-env", "reviews", "SERVICES_DOMAIN", c.CFInternalAppsDomain).Wait(defaultTimeout)
 	Expect(setReviewsEnvVar).To(Exit(0))
 	reviewsRestage := cf.Cf("restage", "reviews").Wait(defaultTimeout)
 	Expect(reviewsRestage).To(Exit(0))
