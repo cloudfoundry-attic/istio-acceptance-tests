@@ -3,14 +3,39 @@
 
 [[projects]]
   branch = "master"
+  name = "code.cloudfoundry.org/cf-routing-test-helpers"
+  packages = [
+    "helpers",
+    "schema"
+  ]
+  revision = "00ed4c7802cdf85bb26eb8d8e5df09d392aba817"
+
+[[projects]]
+  branch = "ap-ts/isolate-cf-user-session"
+  name = "code.cloudfoundry.org/cf-test-helpers"
+  packages = ["cf"]
+  revision = "a16ef65deb04ab804a16b6630a4c5791abe034d6"
+
+[[projects]]
+  branch = "master"
   name = "github.com/cloudfoundry-incubator/cf-test-helpers"
   packages = [
     "cf",
     "commandreporter",
     "commandstarter",
-    "internal"
+    "config",
+    "generator",
+    "internal",
+    "workflowhelpers",
+    "workflowhelpers/internal"
   ]
   revision = "1a8c223f1cc4110cc866f7298ff622b83e274173"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/cloudfoundry/cf-acceptance-tests"
+  packages = ["helpers/random_name"]
+  revision = "68d13efcfd0d18b97bed7fdf8cc1b6083d0f833a"
 
 [[projects]]
   name = "github.com/onsi/ginkgo"
@@ -59,6 +84,12 @@
   version = "v1.3.0"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/pivotal-cf-experimental/cf-test-helpers"
+  packages = ["runner"]
+  revision = "e56b6ec41da995a7662bb9c6f80219a6322baeb4"
+
+[[projects]]
   name = "github.com/sclevine/agouti"
   packages = [
     ".",
@@ -73,6 +104,15 @@
   ]
   revision = "e3f6c97a4077ad821daab49db8172cf9f6690faf"
   version = "v3.0.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/vito/cmdtest"
+  packages = [
+    ".",
+    "matchers"
+  ]
+  revision = "6d025fad5c9c2d65a0e827f4d636747226222eec"
 
 [[projects]]
   branch = "master"
@@ -123,6 +163,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "314e1b4d045205e4b33a75753441cbecf76d1d6754f87c7d8cb3650df4f8e277"
+  inputs-digest = "1ccf208bd0f8331cc3e27cebcbf368eba6dc9ba6450ab8fa86176ba5ebf04092"
   solver-name = "gps-cdcl"
   solver-version = 1

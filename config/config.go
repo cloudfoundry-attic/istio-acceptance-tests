@@ -10,10 +10,10 @@ import (
 
 type Config struct {
 	CFSystemDomain           string `json:"cf_system_domain"`
+	CFInternalAppsDomain     string `json:"cf_internal_apps_domain"`
 	IstioDomain              string `json:"cf_istio_domain"`
 	AdminUser                string `json:"cf_admin_user"`
 	AdminPassword            string `json:"cf_admin_password"`
-	CFInternalAppsDomain     string `json:"cf_internal_apps_domain"`
 	ProductPageDockerWithTag string `json:"product_page_docker_tag"`
 	ReviewsDockerWithTag     string `json:"reviews_docker_tag"`
 	RatingsDockerWithTag     string `json:"ratings_docker_tag"`
@@ -50,6 +50,9 @@ func (c Config) Validate() error {
 	}
 	if c.CFInternalAppsDomain == "" {
 		missingProperties = append(missingProperties, "cf_internal_apps_domain")
+	}
+	if c.IstioDomain == "" {
+		missingProperties = append(missingProperties, "cf_istio_domain")
 	}
 	if c.ProductPageDockerWithTag == "" {
 		c.ProductPageDockerWithTag = "istio/examples-bookinfo-productpage-v1:1.5.0"

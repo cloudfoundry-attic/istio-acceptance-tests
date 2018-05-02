@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/istio-acceptance-tests/config"
+	"code.cloudfoundry.org/istio-acceptance-tests/helpers"
 	"github.com/cloudfoundry-incubator/cf-test-helpers/cf"
 	"github.com/cloudfoundry-incubator/cf-test-helpers/workflowhelpers"
 	. "github.com/onsi/ginkgo"
@@ -26,28 +27,6 @@ var (
 	defaultTimeout = 120 * time.Second
 )
 
-type testUser struct {
-	config.Config
-}
-
-func (tu testUser) Username() string {
-	return tu.AdminUser
-}
-
-func (tu testUser) Password() string {
-	return tu.AdminPassword
-}
-
-type testWorkspace struct{}
-
-func (tw testWorkspace) OrganizationName() string {
-	return "ISTIO-ORG"
-}
-
-func (tw testWorkspace) SpaceName() string {
-	return "ISTIO-SPACE"
-}
-
 var _ = BeforeSuite(func() {
 	var err error
 	configPath := os.Getenv("CONFIG")
@@ -64,9 +43,9 @@ var _ = BeforeSuite(func() {
 		os.Setenv("API_DOMAIN", c.IstioDomain)
 	}
 
-	tw := testWorkspace{}
+	tw := helpers.TestWorkspace{}
 
-	uc := workflowhelpers.NewUserContext(fmt.Sprintf("api.%s", c.CFSystemDomain), testUser{c}, tw, true, defaultTimeout)
+	uc := workflowhelpers.NewUserContext(fmt.Sprintf("api.%s", c.CFSystemDomain), helpers.TestUser{c}, tw, true, defaultTimeout)
 	uc.Login()
 
 	orgCmd := cf.Cf("create-org", tw.OrganizationName()).Wait(defaultTimeout)
@@ -124,7 +103,7 @@ var _ = AfterSuite(func() {
 	Expect(cleanUpRatings).To(Exit(0))
 	cleanUpDetails := cf.Cf("delete", "details", "-f", "-r").Wait(defaultTimeout)
 	Expect(cleanUpDetails).To(Exit(0))
-	cleanUpCmd := cf.Cf("delete-org", testWorkspace{}.OrganizationName(), "-f").Wait(defaultTimeout)
+	cleanUpCmd := cf.Cf("delete-org", helpers.TestWorkspace{}.OrganizationName(), "-f").Wait(defaultTimeout)
 	Expect(cleanUpCmd).To(Exit(0))
 	Expect(agoutiDriver.Stop()).To(Succeed())
 })
