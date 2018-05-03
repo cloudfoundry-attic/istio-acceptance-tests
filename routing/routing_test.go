@@ -8,6 +8,7 @@ import (
 	"time"
 
 	routing_helpers "code.cloudfoundry.org/cf-routing-test-helpers/helpers"
+	"code.cloudfoundry.org/istio-acceptance-tests/helpers"
 	"github.com/cloudfoundry-incubator/cf-test-helpers/cf"
 	"github.com/cloudfoundry/cf-acceptance-tests/helpers/random_name"
 	. "github.com/onsi/ginkgo"
@@ -17,13 +18,14 @@ import (
 
 var _ = Describe("Routing", func() {
 	var (
+		domain            string
 		app               string
 		helloRoutingAsset = "../assets/golang"
 		appURL            string
 	)
 
 	BeforeEach(func() {
-		domain := IstioDomain()
+		domain = IstioDomain()
 
 		app = random_name.CATSRandomName("APP")
 		pushCmd := cf.Cf("push", app,
@@ -93,6 +95,43 @@ var _ = Describe("Routing", func() {
 				}
 				return instanceTwo, nil
 			}, defaultTimeout, time.Second).ShouldNot(Equal(instanceOne))
+		})
+	})
+
+	Context("when an app has many routes", func() {
+		It("requests succeed to all routes", func() {
+			tw := helpers.TestWorkspace{}
+			space := tw.SpaceName()
+			hostNameOne := "app1"
+			hostNameTwo := "app2"
+
+			createRouteOneCmd := cf.Cf("create-route", space, domain, "--hostname", hostNameOne)
+			Expect(createRouteOneCmd.Wait(defaultTimeout)).To(Exit(0))
+			createRouteTwoCmd := cf.Cf("create-route", space, domain, "--hostname", hostNameTwo)
+			Expect(createRouteTwoCmd.Wait(defaultTimeout)).To(Exit(0))
+
+			mapRouteOneCmd := cf.Cf("map-route", app, domain, "--hostname", hostNameOne)
+			Expect(mapRouteOneCmd.Wait(defaultTimeout)).To(Exit(0))
+			mapRouteTwoCmd := cf.Cf("map-route", app, domain, "--hostname", hostNameTwo)
+			Expect(mapRouteTwoCmd.Wait(defaultTimeout)).To(Exit(0))
+
+			Eventually(func() (int, error) {
+				appURLOne := fmt.Sprintf("http://%s.%s", hostNameOne, domain)
+				res, err := http.Get(appURLOne)
+				if err != nil {
+					return 0, err
+				}
+				return res.StatusCode, nil
+			}, defaultTimeout, time.Second).Should(Equal(200))
+
+			Eventually(func() (int, error) {
+				appURLTwo := fmt.Sprintf("http://%s.%s", hostNameTwo, domain)
+				res, err := http.Get(appURLTwo)
+				if err != nil {
+					return 0, err
+				}
+				return res.StatusCode, nil
+			}, defaultTimeout, time.Second).Should(Equal(200))
 		})
 	})
 })

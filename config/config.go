@@ -51,9 +51,6 @@ func (c Config) Validate() error {
 	if c.CFInternalAppsDomain == "" {
 		missingProperties = append(missingProperties, "cf_internal_apps_domain")
 	}
-	if c.IstioDomain == "" {
-		missingProperties = append(missingProperties, "cf_istio_domain")
-	}
 	if c.ProductPageDockerWithTag == "" {
 		c.ProductPageDockerWithTag = "istio/examples-bookinfo-productpage-v1:1.5.0"
 	}
@@ -68,7 +65,6 @@ func (c Config) Validate() error {
 	}
 	if len(missingProperties) > 0 {
 		return errors.New(fmt.Sprintf("Missing required config properties: %s", strings.Join(missingProperties, ", ")))
-	} else {
-		return nil
 	}
+	return nil
 }
