@@ -103,11 +103,16 @@ var _ = Describe("Routing", func() {
 	})
 
 	Context("when an app has many routes", func() {
-		It("requests succeed to all routes", func() {
+		var (
+			hostNameOne string
+			hostNameTwo string
+		)
+
+		BeforeEach(func() {
 			tw := helpers.TestWorkspace{}
 			space := tw.SpaceName()
-			hostNameOne := "app1"
-			hostNameTwo := "app2"
+			hostNameOne = "app1"
+			hostNameTwo = "app2"
 
 			createRouteOneCmd := cf.Cf("create-route", space, domain, "--hostname", hostNameOne)
 			Expect(createRouteOneCmd.Wait(defaultTimeout)).To(Exit(0))
@@ -118,7 +123,9 @@ var _ = Describe("Routing", func() {
 			Expect(mapRouteOneCmd.Wait(defaultTimeout)).To(Exit(0))
 			mapRouteTwoCmd := cf.Cf("map-route", app, domain, "--hostname", hostNameTwo)
 			Expect(mapRouteTwoCmd.Wait(defaultTimeout)).To(Exit(0))
+		})
 
+		It("requests succeed to all routes", func() {
 			Eventually(func() (int, error) {
 				appURLOne := fmt.Sprintf("http://%s.%s", hostNameOne, domain)
 				res, err := http.Get(appURLOne)
@@ -127,6 +134,29 @@ var _ = Describe("Routing", func() {
 				}
 				return res.StatusCode, nil
 			}, defaultTimeout, time.Second).Should(Equal(200))
+
+			Eventually(func() (int, error) {
+				appURLTwo := fmt.Sprintf("http://%s.%s", hostNameTwo, domain)
+				res, err := http.Get(appURLTwo)
+				if err != nil {
+					return 0, err
+				}
+				return res.StatusCode, nil
+			}, defaultTimeout, time.Second).Should(Equal(200))
+		})
+
+		It("successfully unmaps routes and request continue to succeed for mapped routes", func() {
+			unmapRouteOneCmd := cf.Cf("unmap-route", app, domain, "--hostname", hostNameOne)
+			Expect(unmapRouteOneCmd.Wait(defaultTimeout)).To(Exit(0))
+
+			Eventually(func() (int, error) {
+				appURLOne := fmt.Sprintf("http://%s.%s", hostNameOne, domain)
+				res, err := http.Get(appURLOne)
+				if err != nil {
+					return 0, err
+				}
+				return res.StatusCode, nil
+			}, defaultTimeout).Should(Equal(404))
 
 			Eventually(func() (int, error) {
 				appURLTwo := fmt.Sprintf("http://%s.%s", hostNameTwo, domain)
