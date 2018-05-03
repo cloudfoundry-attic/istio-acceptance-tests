@@ -36,9 +36,13 @@ var _ = Describe("Routing", func() {
 		Expect(pushCmd).To(Exit(0))
 		appURL = fmt.Sprintf("http://%s.%s", app, domain)
 
-		res, err := http.Get(appURL)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(res.StatusCode).To(Equal(200))
+		Eventually(func() (int, error) {
+			res, err := http.Get(appURL)
+			if err != nil {
+				return 0, err
+			}
+			return res.StatusCode, err
+		}, defaultTimeout).Should(Equal(200))
 	})
 
 	AfterEach(func() {
