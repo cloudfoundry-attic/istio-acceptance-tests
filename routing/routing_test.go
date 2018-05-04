@@ -1,10 +1,15 @@
 package routing_test
 
 import (
+	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
+	"regexp"
+	"strings"
 	"time"
 
 	routing_helpers "code.cloudfoundry.org/cf-routing-test-helpers/helpers"
@@ -70,17 +75,7 @@ var _ = Describe("Routing", func() {
 			res, err := http.Get(appURL)
 			Expect(err).ToNot(HaveOccurred())
 
-			body, err := ioutil.ReadAll(res.Body)
-			Expect(err).ToNot(HaveOccurred())
-
-			type Instance struct {
-				Index string `json:"instance_index"`
-				GUID  string `json:"instance_guid"`
-			}
-			var instanceOne Instance
-			err = json.Unmarshal(body, &instanceOne)
-			Expect(err).NotTo(HaveOccurred())
-
+			instanceOne := getAppResponse(res.Body)
 			Eventually(func() (Instance, error) {
 				res, err := http.Get(appURL)
 				if err != nil {
@@ -106,11 +101,12 @@ var _ = Describe("Routing", func() {
 		var (
 			hostNameOne string
 			hostNameTwo string
+			space       string
 		)
 
 		BeforeEach(func() {
 			tw := helpers.TestWorkspace{}
-			space := tw.SpaceName()
+			space = tw.SpaceName()
 			hostNameOne = "app1"
 			hostNameTwo = "app2"
 
@@ -123,6 +119,145 @@ var _ = Describe("Routing", func() {
 			Expect(mapRouteOneCmd.Wait(defaultTimeout)).To(Exit(0))
 			mapRouteTwoCmd := cf.Cf("map-route", app, domain, "--hostname", hostNameTwo)
 			Expect(mapRouteTwoCmd.Wait(defaultTimeout)).To(Exit(0))
+		})
+
+		FContext("can map route using both CAPI API endpoints", func() {
+
+			// TODO: try to put the common ops in both tests below in before each
+			It("can map route using Apps API", func() {
+				oauthToken := authToken()
+				hostName := fmt.Sprintf("someApp-%d", time.Now().UnixNano)
+
+				spaceGuid := spaceGuid(space)
+				domainGuid := domainGuid(domain)
+
+				postBody := map[string]string{
+					"domain_guid": domainGuid,
+					"space_guid":  spaceGuid,
+					"host":        hostName,
+				}
+
+				jsonBody, err := json.Marshal(postBody)
+				Expect(err).NotTo(HaveOccurred())
+
+				// create a route not using cf helpers, since it does not return the reponse body
+				// and -v returns too much stuff
+				routeCreateReq, err := http.NewRequest(
+					"POST",
+					fmt.Sprintf("https://api.%s/v2/routes", SystemDomain()),
+					bytes.NewBuffer(jsonBody),
+				)
+
+				oauthToken = authToken()
+				routeCreateReq.Header.Add("Authorization", oauthToken)
+				routeCreateReq.Header.Set("Content-Type", "Application/json")
+
+				tr := &http.Transport{
+					TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+				}
+				client := &http.Client{Transport: tr}
+				resp, err := client.Do(routeCreateReq)
+				Expect(err).NotTo(HaveOccurred())
+				defer resp.Body.Close()
+
+				b, err := ioutil.ReadAll(resp.Body)
+				Expect(err).NotTo(HaveOccurred())
+
+				routeGuid := getEntityGuid(string(b))
+
+				appGuidCmd := cf.Cf("app", app, "--guid")
+				Expect(appGuidCmd.Wait(defaultTimeout)).To(Exit(0))
+				appGuid := string(appGuidCmd.Out.Contents())
+				appGuid = strings.TrimSuffix(appGuid, "\n")
+
+				reqURI := fmt.Sprintf("https://api.%s/v2/apps/%s/routes/%s", SystemDomain(), appGuid, routeGuid)
+				req, err := http.NewRequest("PUT", reqURI, nil)
+				Expect(err).NotTo(HaveOccurred())
+
+				req.Header.Add("Authorization", oauthToken)
+
+				resp, err = client.Do(req)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(http.StatusCreated))
+				defer resp.Body.Close()
+
+				Eventually(func() (int, error) {
+					appURLOne := fmt.Sprintf("http://%s.%s", hostName, domain)
+					res, err := http.Get(appURLOne)
+					if err != nil {
+						return 0, err
+					}
+					return res.StatusCode, nil
+				}, defaultTimeout, time.Second).Should(Equal(200))
+			})
+
+			It("can map route using Routes API", func() {
+				oauthToken := authToken()
+				hostName := fmt.Sprintf("someApp-%d", time.Now().UnixNano)
+
+				spaceGuid := spaceGuid(space)
+				domainGuid := domainGuid(domain)
+
+				postBody := map[string]string{
+					"domain_guid": domainGuid,
+					"space_guid":  spaceGuid,
+					"host":        hostName,
+				}
+
+				jsonBody, err := json.Marshal(postBody)
+				Expect(err).NotTo(HaveOccurred())
+
+				// create a route not using cf helpers, since it does not return the reponse body
+				// and -v returns too much stuff
+				routeCreateReq, err := http.NewRequest(
+					"POST",
+					fmt.Sprintf("https://api.%s/v2/routes", SystemDomain()),
+					bytes.NewBuffer(jsonBody),
+				)
+
+				oauthToken = authToken()
+				routeCreateReq.Header.Add("Authorization", oauthToken)
+				routeCreateReq.Header.Set("Content-Type", "Application/json")
+
+				tr := &http.Transport{
+					TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+				}
+				client := &http.Client{Transport: tr}
+				resp, err := client.Do(routeCreateReq)
+				Expect(err).NotTo(HaveOccurred())
+				defer resp.Body.Close()
+
+				b, err := ioutil.ReadAll(resp.Body)
+				Expect(err).NotTo(HaveOccurred())
+
+				routeGuid := getEntityGuid(string(b))
+
+				appGuidCmd := cf.Cf("app", app, "--guid")
+				Expect(appGuidCmd.Wait(defaultTimeout)).To(Exit(0))
+				appGuid := string(appGuidCmd.Out.Contents())
+				appGuid = strings.TrimSuffix(appGuid, "\n")
+
+				reqURI := fmt.Sprintf("https://api.%s/v2/routes/%s/apps/%s", SystemDomain(), routeGuid, appGuid)
+				req, err := http.NewRequest("PUT", reqURI, nil)
+				Expect(err).NotTo(HaveOccurred())
+
+				req.Header.Add("Authorization", oauthToken)
+
+				resp, err = client.Do(req)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(http.StatusCreated))
+				defer resp.Body.Close()
+
+				Eventually(func() (int, error) {
+					appURLOne := fmt.Sprintf("http://%s.%s", hostName, domain)
+					res, err := http.Get(appURLOne)
+					if err != nil {
+						return 0, err
+					}
+					return res.StatusCode, nil
+				}, defaultTimeout, time.Second).Should(Equal(200))
+			})
+
 		})
 
 		It("requests succeed to all routes", func() {
@@ -169,3 +304,44 @@ var _ = Describe("Routing", func() {
 		})
 	})
 })
+
+type Instance struct {
+	Index string `json:"instance_index"`
+	GUID  string `json:"instance_guid"`
+}
+
+func getAppResponse(resp io.ReadCloser) Instance {
+	body, err := ioutil.ReadAll(resp)
+	Expect(err).ToNot(HaveOccurred())
+
+	var instance Instance
+	err = json.Unmarshal(body, &instance)
+	Expect(err).NotTo(HaveOccurred())
+	return instance
+}
+
+func spaceGuid(s string) string {
+	spaceGuidCmd := cf.Cf("space", s, "--guid")
+	Expect(spaceGuidCmd.Wait(defaultTimeout)).To(Exit(0))
+	spaceGuid := string(spaceGuidCmd.Out.Contents())
+	return strings.TrimSuffix(spaceGuid, "\n")
+}
+
+func domainGuid(d string) string {
+	domainGuidCmd := cf.Cf("curl", "/v2/domains?q=name:"+d)
+	Expect(domainGuidCmd.Wait(defaultTimeout)).To(Exit(0))
+	domainResp := string(domainGuidCmd.Out.Contents())
+	return getEntityGuid(domainResp)
+}
+
+func getEntityGuid(s string) string {
+	regex := regexp.MustCompile(`\s+"guid": "(.+)"`)
+	return regex.FindStringSubmatch(s)[1]
+}
+
+func authToken() string {
+	authTokenCmd := cf.Cf("oauth-token")
+	Expect(authTokenCmd.Wait(defaultTimeout)).To(Exit(0))
+	oauthToken := string(authTokenCmd.Out.Contents())
+	return strings.TrimSuffix(oauthToken, "\n")
+}
