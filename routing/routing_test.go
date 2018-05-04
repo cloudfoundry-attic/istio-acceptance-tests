@@ -174,5 +174,89 @@ var _ = Describe("Routing", func() {
 				}, defaultTimeout, time.Second).ShouldNot(Equal(instanceOne))
 			})
 		})
+
+		Context("when mapping a route to multiple apps", func() {
+			var (
+				holaRoutingAsset = "../assets/hola-golang"
+				appTwo           string
+				appTwoURL        string
+				hostname         string
+			)
+
+			BeforeEach(func() {
+				domain = IstioDomain()
+
+				appTwo = random_name.CATSRandomName("APP")
+				pushCmd := cf.Cf("push", appTwo,
+					"-p", holaRoutingAsset,
+					"-f", fmt.Sprintf("%s/manifest.yml", holaRoutingAsset),
+					"-d", domain,
+					"-i", "1").Wait(defaultTimeout)
+				Expect(pushCmd).To(Exit(0))
+				appTwoURL = fmt.Sprintf("http://%s.%s", appTwo, domain)
+
+				Eventually(func() (int, error) {
+					res, err := http.Get(appTwoURL)
+					if err != nil {
+						return 0, err
+					}
+					return res.StatusCode, err
+				}, defaultTimeout).Should(Equal(200))
+
+				tw := helpers.TestWorkspace{}
+				space := tw.SpaceName()
+				hostname = "greetings-app"
+
+				createRouteOneCmd := cf.Cf("create-route", space, domain, "--hostname", hostname)
+				Expect(createRouteOneCmd.Wait(defaultTimeout)).To(Exit(0))
+
+				mapRouteOneCmd := cf.Cf("map-route", app, domain, "--hostname", hostname)
+				Expect(mapRouteOneCmd.Wait(defaultTimeout)).To(Exit(0))
+
+				mapRouteTwoCmd := cf.Cf("map-route", appTwo, domain, "--hostname", hostname)
+				Expect(mapRouteTwoCmd.Wait(defaultTimeout)).To(Exit(0))
+			})
+
+			AfterEach(func() {
+				routing_helpers.AppReport(appTwo, defaultTimeout)
+				routing_helpers.DeleteApp(appTwo, defaultTimeout)
+			})
+
+			It("successfully load balances requests to the apps", func() {
+				res, err := http.Get(appURL)
+				Expect(err).ToNot(HaveOccurred())
+
+				body, err := ioutil.ReadAll(res.Body)
+				Expect(err).ToNot(HaveOccurred())
+
+				type AppResponse struct {
+					Greeting string `json:"greeting"`
+				}
+
+				var appOneResp AppResponse
+				err = json.Unmarshal(body, &appOneResp)
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(func() (AppResponse, error) {
+					res, err := http.Get(appTwoURL)
+					if err != nil {
+						return AppResponse{}, err
+					}
+
+					body, err := ioutil.ReadAll(res.Body)
+					if err != nil {
+						return AppResponse{}, err
+					}
+
+					var appTwoResp AppResponse
+					err = json.Unmarshal(body, &appTwoResp)
+					if err != nil {
+						return AppResponse{}, err
+					}
+
+					return appTwoResp, nil
+				}, defaultTimeout, time.Second).ShouldNot(Equal(appOneResp))
+			})
+		})
 	})
 })
