@@ -19,7 +19,7 @@ func main() {
 
 func hello(res http.ResponseWriter, req *http.Request) {
 	fmt.Println("Recieved request ", time.Now())
-	response := fmt.Sprintf(`{"instance_index": %q, "instance_guid": %q}`, os.Getenv("CF_INSTANCE_INDEX"), os.Getenv("INSTANCE_GUID"))
+	response := fmt.Sprintf(`{"greeting": "hello", "instance_index": %q, "instance_guid": %q}`, os.Getenv("CF_INSTANCE_INDEX"), os.Getenv("INSTANCE_GUID"))
 
 	res.WriteHeader(200)
 	res.Write([]byte(response))
