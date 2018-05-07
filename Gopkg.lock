@@ -13,7 +13,7 @@
 [[projects]]
   branch = "ap-ts/isolate-cf-user-session"
   name = "code.cloudfoundry.org/cf-test-helpers"
-  packages = ["cf"]
+  packages = ["generator"]
   revision = "a16ef65deb04ab804a16b6630a4c5791abe034d6"
 
 [[projects]]
@@ -33,9 +33,9 @@
 
 [[projects]]
   branch = "master"
-  name = "github.com/cloudfoundry/cf-acceptance-tests"
-  packages = ["helpers/random_name"]
-  revision = "68d13efcfd0d18b97bed7fdf8cc1b6083d0f833a"
+  name = "github.com/nu7hatch/gouuid"
+  packages = ["."]
+  revision = "179d4d0c4d8d407a32af483c2354df1d2c91e6c3"
 
 [[projects]]
   name = "github.com/onsi/ginkgo"
@@ -84,12 +84,6 @@
   version = "v1.3.0"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/pivotal-cf-experimental/cf-test-helpers"
-  packages = ["runner"]
-  revision = "e56b6ec41da995a7662bb9c6f80219a6322baeb4"
-
-[[projects]]
   name = "github.com/sclevine/agouti"
   packages = [
     ".",
@@ -104,15 +98,6 @@
   ]
   revision = "e3f6c97a4077ad821daab49db8172cf9f6690faf"
   version = "v3.0.0"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/vito/cmdtest"
-  packages = [
-    ".",
-    "matchers"
-  ]
-  revision = "6d025fad5c9c2d65a0e827f4d636747226222eec"
 
 [[projects]]
   branch = "master"
@@ -163,6 +148,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "1ccf208bd0f8331cc3e27cebcbf368eba6dc9ba6450ab8fa86176ba5ebf04092"
+  inputs-digest = "e7d8fe3d8eb6fa6bec2b7a48e29becd0e8908a37d2e77a55955ef19554c09ccf"
   solver-name = "gps-cdcl"
   solver-version = 1

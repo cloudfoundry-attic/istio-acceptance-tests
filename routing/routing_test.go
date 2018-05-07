@@ -1,16 +1,21 @@
 package routing_test
 
 import (
+	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
+	"regexp"
+	"strings"
 	"time"
 
 	routing_helpers "code.cloudfoundry.org/cf-routing-test-helpers/helpers"
 	"code.cloudfoundry.org/istio-acceptance-tests/helpers"
 	"github.com/cloudfoundry-incubator/cf-test-helpers/cf"
-	"github.com/cloudfoundry/cf-acceptance-tests/helpers/random_name"
+	"github.com/cloudfoundry-incubator/cf-test-helpers/generator"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gexec"
@@ -27,7 +32,7 @@ var _ = Describe("Routing", func() {
 	BeforeEach(func() {
 		domain = IstioDomain()
 
-		app = random_name.CATSRandomName("APP")
+		app = generator.PrefixedRandomName("IATS", "APP")
 		pushCmd := cf.Cf("push", app,
 			"-p", helloRoutingAsset,
 			"-f", fmt.Sprintf("%s/manifest.yml", helloRoutingAsset),
@@ -37,12 +42,8 @@ var _ = Describe("Routing", func() {
 		appURL = fmt.Sprintf("http://%s.%s", app, domain)
 
 		Eventually(func() (int, error) {
-			res, err := http.Get(appURL)
-			if err != nil {
-				return 0, err
-			}
-			return res.StatusCode, err
-		}, defaultTimeout).Should(Equal(200))
+			return getStatusCode(appURL)
+		}, defaultTimeout).Should(Equal(http.StatusOK))
 	})
 
 	AfterEach(func() {
@@ -56,12 +57,8 @@ var _ = Describe("Routing", func() {
 			Expect(stopCmd).To(Exit(0))
 
 			Eventually(func() (int, error) {
-				res, err := http.Get(appURL)
-				if err != nil {
-					return 0, err
-				}
-				return res.StatusCode, err
-			}, defaultTimeout).Should(Equal(503))
+				return getStatusCode(appURL)
+			}, defaultTimeout).Should(Equal(http.StatusServiceUnavailable))
 		})
 	})
 
@@ -69,11 +66,14 @@ var _ = Describe("Routing", func() {
 		var (
 			hostnameOne string
 			hostnameTwo string
+			space       string
+			org         string
 		)
 
 		BeforeEach(func() {
 			tw := helpers.TestWorkspace{}
-			space := tw.SpaceName()
+			space = tw.SpaceName()
+			org = tw.OrganizationName()
 			hostnameOne = "app1"
 			hostnameTwo = "app2"
 
@@ -91,21 +91,13 @@ var _ = Describe("Routing", func() {
 		It("requests succeed to all routes", func() {
 			Eventually(func() (int, error) {
 				appURLOne := fmt.Sprintf("http://%s.%s", hostnameOne, domain)
-				res, err := http.Get(appURLOne)
-				if err != nil {
-					return 0, err
-				}
-				return res.StatusCode, nil
-			}, defaultTimeout, time.Second).Should(Equal(200))
+				return getStatusCode(appURLOne)
+			}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
 
 			Eventually(func() (int, error) {
 				appURLTwo := fmt.Sprintf("http://%s.%s", hostnameTwo, domain)
-				res, err := http.Get(appURLTwo)
-				if err != nil {
-					return 0, err
-				}
-				return res.StatusCode, nil
-			}, defaultTimeout, time.Second).Should(Equal(200))
+				return getStatusCode(appURLTwo)
+			}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
 		})
 
 		It("successfully unmaps routes and request continue to succeed for mapped routes", func() {
@@ -114,21 +106,92 @@ var _ = Describe("Routing", func() {
 
 			Eventually(func() (int, error) {
 				appURLOne := fmt.Sprintf("http://%s.%s", hostnameOne, domain)
-				res, err := http.Get(appURLOne)
-				if err != nil {
-					return 0, err
-				}
-				return res.StatusCode, nil
+				return getStatusCode(appURLOne)
 			}, defaultTimeout).Should(Equal(404))
 
 			Eventually(func() (int, error) {
 				appURLTwo := fmt.Sprintf("http://%s.%s", hostnameTwo, domain)
-				res, err := http.Get(appURLTwo)
-				if err != nil {
-					return 0, err
-				}
-				return res.StatusCode, nil
-			}, defaultTimeout, time.Second).Should(Equal(200))
+				return getStatusCode(appURLTwo)
+			}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
+		})
+	})
+
+	Context("route mappings", func() {
+		var (
+			hostname   string
+			space      string
+			org        string
+			oauthToken string
+			client     *http.Client
+			aGuid      string
+		)
+
+		BeforeEach(func() {
+			tw := helpers.TestWorkspace{}
+			space = tw.SpaceName()
+			org = tw.OrganizationName()
+			hostname = fmt.Sprintf("someApp-%d", time.Now().UnixNano)
+			oauthToken = authToken()
+			tr := &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			}
+			client = &http.Client{Transport: tr}
+			aGuid = appGuid(app)
+		})
+
+		It("can map a route with a private domain", func() {
+			privateDomain := fmt.Sprintf("%s.%s", generator.PrefixedRandomName("iats", "private"), domain)
+			privateDomainGuidCmd := cf.Cf("create-domain", org, privateDomain)
+			Expect(privateDomainGuidCmd.Wait(defaultTimeout)).To(Exit(0))
+
+			privateHostname := fmt.Sprintf("someApp-%d", time.Now().UnixNano)
+			mapRouteCmd := cf.Cf("map-route", app, privateDomain, "--hostname", privateHostname)
+			Expect(mapRouteCmd.Wait(defaultTimeout)).To(Exit(0))
+
+			Eventually(func() (int, error) {
+				appURL := fmt.Sprintf("http://%s.%s", privateHostname, privateDomain)
+				return getStatusCode(appURL)
+			}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
+		})
+
+		Context("mapping a route using both CAPI endpoints", func() {
+			It("can map route using Apps API", func() {
+				routeGuid := routeGuid(space, domain, hostname, oauthToken, client)
+				reqURI := fmt.Sprintf("https://api.%s/v2/apps/%s/routes/%s", SystemDomain(), aGuid, routeGuid)
+				req, err := http.NewRequest("PUT", reqURI, nil)
+				Expect(err).NotTo(HaveOccurred())
+
+				req.Header.Add("Authorization", oauthToken)
+
+				resp, err := client.Do(req)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(http.StatusCreated))
+				defer resp.Body.Close()
+
+				Eventually(func() (int, error) {
+					appURL := fmt.Sprintf("http://%s.%s", hostname, domain)
+					return getStatusCode(appURL)
+				}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
+			})
+
+			It("can map route using Routes API", func() {
+				routeGuid := routeGuid(space, domain, hostname, oauthToken, client)
+				reqURI := fmt.Sprintf("https://api.%s/v2/routes/%s/apps/%s", SystemDomain(), routeGuid, aGuid)
+				req, err := http.NewRequest("PUT", reqURI, nil)
+				Expect(err).NotTo(HaveOccurred())
+
+				req.Header.Add("Authorization", oauthToken)
+
+				resp, err := client.Do(req)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(http.StatusCreated))
+				defer resp.Body.Close()
+
+				Eventually(func() (int, error) {
+					appURL := fmt.Sprintf("http://%s.%s", hostname, domain)
+					return getStatusCode(appURL)
+				}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
+			})
 		})
 	})
 
@@ -186,7 +249,7 @@ var _ = Describe("Routing", func() {
 			BeforeEach(func() {
 				domain = IstioDomain()
 
-				appTwo = random_name.CATSRandomName("APP")
+				appTwo = generator.PrefixedRandomName("IATS", "APP")
 				pushCmd := cf.Cf("push", appTwo,
 					"-p", holaRoutingAsset,
 					"-f", fmt.Sprintf("%s/manifest.yml", holaRoutingAsset),
@@ -196,12 +259,8 @@ var _ = Describe("Routing", func() {
 				appTwoURL = fmt.Sprintf("http://%s.%s", appTwo, domain)
 
 				Eventually(func() (int, error) {
-					res, err := http.Get(appTwoURL)
-					if err != nil {
-						return 0, err
-					}
-					return res.StatusCode, err
-				}, defaultTimeout).Should(Equal(200))
+					return getStatusCode(appTwoURL)
+				}, defaultTimeout).Should(Equal(http.StatusOK))
 
 				tw := helpers.TestWorkspace{}
 				space := tw.SpaceName()
@@ -260,3 +319,93 @@ var _ = Describe("Routing", func() {
 		})
 	})
 })
+
+type Instance struct {
+	Index string `json:"instance_index"`
+	GUID  string `json:"instance_guid"`
+}
+
+func getAppResponse(resp io.ReadCloser) Instance {
+	body, err := ioutil.ReadAll(resp)
+	Expect(err).ToNot(HaveOccurred())
+
+	var instance Instance
+	err = json.Unmarshal(body, &instance)
+	Expect(err).NotTo(HaveOccurred())
+	return instance
+}
+
+func getStatusCode(appURL string) (int, error) {
+	res, err := http.Get(appURL)
+	if err != nil {
+		return 0, err
+	}
+	return res.StatusCode, nil
+}
+
+func appGuid(a string) string {
+	appGuidCmd := cf.Cf("app", a, "--guid")
+	Expect(appGuidCmd.Wait(defaultTimeout)).To(Exit(0))
+	appGuid := string(appGuidCmd.Out.Contents())
+	return strings.TrimSuffix(appGuid, "\n")
+}
+
+func spaceGuid(s string) string {
+	spaceGuidCmd := cf.Cf("space", s, "--guid")
+	Expect(spaceGuidCmd.Wait(defaultTimeout)).To(Exit(0))
+	spaceGuid := string(spaceGuidCmd.Out.Contents())
+	return strings.TrimSuffix(spaceGuid, "\n")
+}
+
+func domainGuid(d string) string {
+	domainGuidCmd := cf.Cf("curl", "/v2/domains?q=name:"+d)
+	Expect(domainGuidCmd.Wait(defaultTimeout)).To(Exit(0))
+	domainResp := string(domainGuidCmd.Out.Contents())
+	return getEntityGuid(domainResp)
+}
+
+func routeGuid(space string, domain string, hostName string, authToken string, client *http.Client) string {
+	spaceGuid := spaceGuid(space)
+	domainGuid := domainGuid(domain)
+
+	postBody := map[string]string{
+		"domain_guid": domainGuid,
+		"space_guid":  spaceGuid,
+		"host":        hostName,
+	}
+
+	jsonBody, err := json.Marshal(postBody)
+	Expect(err).NotTo(HaveOccurred())
+
+	// create a route not using cf helpers, since it does not return the reponse body
+	// and -v returns too much stuff
+	routeCreateReq, err := http.NewRequest(
+		"POST",
+		fmt.Sprintf("https://api.%s/v2/routes", SystemDomain()),
+		bytes.NewBuffer(jsonBody),
+	)
+
+	routeCreateReq.Header.Add("Authorization", authToken)
+	routeCreateReq.Header.Set("Content-Type", "Application/json")
+
+	resp, err := client.Do(routeCreateReq)
+	Expect(err).NotTo(HaveOccurred())
+	defer resp.Body.Close()
+
+	b, err := ioutil.ReadAll(resp.Body)
+	Expect(err).NotTo(HaveOccurred())
+
+	return getEntityGuid(string(b))
+}
+
+func getEntityGuid(s string) string {
+	regex := regexp.MustCompile(`\s+"guid": "(.+)"`)
+	return regex.FindStringSubmatch(s)[1]
+}
+
+func authToken() string {
+	authTokenCmd := cf.Cf("oauth-token")
+	Expect(authTokenCmd.Wait(defaultTimeout)).To(Exit(0))
+	oauthToken := string(authTokenCmd.Out.Contents())
+	return strings.TrimSuffix(oauthToken, "\n")
+}

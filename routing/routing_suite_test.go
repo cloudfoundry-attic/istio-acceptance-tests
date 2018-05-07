@@ -26,11 +26,16 @@ const (
 
 var (
 	c              config.Config
-	defaultTimeout = 120 * time.Second
+	defaultTimeout = 240 * time.Second
+	orgName        string
 )
 
 func IstioDomain() string {
 	return c.IstioDomain
+}
+
+func SystemDomain() string {
+	return c.CFSystemDomain
 }
 
 var _ = BeforeSuite(func() {
@@ -46,11 +51,16 @@ var _ = BeforeSuite(func() {
 
 	uc := workflowhelpers.NewUserContext(fmt.Sprintf("api.%s", c.CFSystemDomain), helpers.TestUser{c}, tw, true, defaultTimeout)
 	uc.Login()
-
+	orgName = tw.OrganizationName()
 	orgCmd := cf.Cf("create-org", tw.OrganizationName()).Wait(defaultTimeout)
 	Expect(orgCmd).To(Exit(0))
-	spaceCmd := cf.Cf("create-space", "-o", tw.OrganizationName(), tw.SpaceName()).Wait(defaultTimeout)
+	spaceCmd := cf.Cf("create-space", "-o", orgName, tw.SpaceName()).Wait(defaultTimeout)
 	Expect(spaceCmd).To(Exit(0))
 
 	uc.TargetSpace()
+})
+
+var _ = AfterSuite(func() {
+	orgCmd := cf.Cf("delete-org", orgName, "-f").Wait(defaultTimeout)
+	Expect(orgCmd).To(Exit(0))
 })
