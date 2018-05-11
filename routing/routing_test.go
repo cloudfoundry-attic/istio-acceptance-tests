@@ -30,7 +30,7 @@ var _ = Describe("Routing", func() {
 	)
 
 	BeforeEach(func() {
-		domain = IstioDomain()
+		domain = istioDomain()
 
 		app = generator.PrefixedRandomName("IATS", "APP")
 		pushCmd := cf.Cf("push", app,
@@ -107,12 +107,34 @@ var _ = Describe("Routing", func() {
 			Eventually(func() (int, error) {
 				appURLOne := fmt.Sprintf("http://%s.%s", hostnameOne, domain)
 				return getStatusCode(appURLOne)
-			}, defaultTimeout).Should(Equal(404))
+			}, defaultTimeout).Should(Equal(http.StatusNotFound))
 
 			Eventually(func() (int, error) {
 				appURLTwo := fmt.Sprintf("http://%s.%s", hostnameTwo, domain)
 				return getStatusCode(appURLTwo)
 			}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
+		})
+	})
+
+	Context("when an app has a user-provided internal route", func() {
+		It("requests are not externally accessible to the internal route", func() {
+			timeout := time.Duration(time.Second * 10)
+			tr := &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			}
+			client := &http.Client{Transport: tr, Timeout: timeout}
+			hostname := "app1"
+			mapRouteInternalCmd := cf.Cf("map-route", app, internalDomain(), "--hostname", hostname)
+			Expect(mapRouteInternalCmd.Wait(defaultTimeout)).To(Exit(0))
+
+			req, err := http.NewRequest("GET", fmt.Sprintf("http://envoy.%s", istioDomain()), nil)
+			Expect(err).NotTo(HaveOccurred())
+			req.Host = fmt.Sprintf("%s.%s", hostname, internalDomain())
+
+			Eventually(func() (int, error) {
+				resp, err := client.Do(req)
+				return resp.StatusCode, err
+			}, defaultTimeout).Should(Equal(http.StatusNotFound))
 		})
 	})
 
@@ -157,7 +179,7 @@ var _ = Describe("Routing", func() {
 		Context("mapping a route using both CAPI endpoints", func() {
 			It("can map route using Apps API", func() {
 				routeGuid := routeGuid(space, domain, hostname, oauthToken, client)
-				reqURI := fmt.Sprintf("https://api.%s/v2/apps/%s/routes/%s", SystemDomain(), aGuid, routeGuid)
+				reqURI := fmt.Sprintf("https://api.%s/v2/apps/%s/routes/%s", systemDomain(), aGuid, routeGuid)
 				req, err := http.NewRequest("PUT", reqURI, nil)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -176,7 +198,7 @@ var _ = Describe("Routing", func() {
 
 			It("can map route using Routes API", func() {
 				routeGuid := routeGuid(space, domain, hostname, oauthToken, client)
-				reqURI := fmt.Sprintf("https://api.%s/v2/routes/%s/apps/%s", SystemDomain(), routeGuid, aGuid)
+				reqURI := fmt.Sprintf("https://api.%s/v2/routes/%s/apps/%s", systemDomain(), routeGuid, aGuid)
 				req, err := http.NewRequest("PUT", reqURI, nil)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -247,7 +269,7 @@ var _ = Describe("Routing", func() {
 			)
 
 			BeforeEach(func() {
-				domain = IstioDomain()
+				domain = istioDomain()
 
 				appTwo = generator.PrefixedRandomName("IATS", "APP")
 				pushCmd := cf.Cf("push", appTwo,
@@ -381,7 +403,7 @@ func routeGuid(space string, domain string, hostName string, authToken string, c
 	// and -v returns too much stuff
 	routeCreateReq, err := http.NewRequest(
 		"POST",
-		fmt.Sprintf("https://api.%s/v2/routes", SystemDomain()),
+		fmt.Sprintf("https://api.%s/v2/routes", systemDomain()),
 		bytes.NewBuffer(jsonBody),
 	)
 

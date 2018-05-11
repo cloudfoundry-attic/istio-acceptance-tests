@@ -30,11 +30,15 @@ var (
 	orgName        string
 )
 
-func IstioDomain() string {
+func internalDomain() string {
+	return c.CFInternalAppsDomain
+}
+
+func istioDomain() string {
 	return c.IstioDomain
 }
 
-func SystemDomain() string {
+func systemDomain() string {
 	return c.CFSystemDomain
 }
 
