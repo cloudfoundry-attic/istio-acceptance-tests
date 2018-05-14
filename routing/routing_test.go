@@ -108,7 +108,7 @@ var _ = Describe("Routing", func() {
 			mapRouteInternalCmd := cf.Cf("map-route", app, internalDomain(), "--hostname", hostname)
 			Expect(mapRouteInternalCmd.Wait(defaultTimeout)).To(Exit(0))
 
-			req, err := http.NewRequest("GET", fmt.Sprintf("http://envoy.%s", istioDomain()), nil)
+			req, err := http.NewRequest("GET", fmt.Sprintf("http://envoy.%s", domain), nil)
 			Expect(err).NotTo(HaveOccurred())
 			req.Host = fmt.Sprintf("%s.%s", hostname, internalDomain())
 
@@ -120,22 +120,12 @@ var _ = Describe("Routing", func() {
 	})
 
 	Context("route mappings", func() {
-		var (
-			space string
-			org   string
-		)
-
-		BeforeEach(func() {
-			space = TestSetup.TestSpace.SpaceName()
-			org = TestSetup.TestSpace.OrganizationName()
-		})
-
 		It("can map a route with a private domain", func() {
 			var privateHostname string
 			privateDomain := fmt.Sprintf("%s.%s", generator.PrefixedRandomName("iats", "private"), domain)
 
-			workflowhelpers.AsUser(TestSetup.AdminUserContext(), defaultTimeout, func() {
-				Expect(cf.Cf("create-domain", org, privateDomain).Wait(defaultTimeout)).To(Exit(0))
+			workflowhelpers.AsUser(adminUserContext(), defaultTimeout, func() {
+				Expect(cf.Cf("create-domain", organizationName(), privateDomain).Wait(defaultTimeout)).To(Exit(0))
 			})
 
 			privateHostname = fmt.Sprintf("someApp-%d", time.Now().UnixNano)
@@ -149,19 +139,19 @@ var _ = Describe("Routing", func() {
 
 		Context("mapping a route using both CAPI endpoints", func() {
 			var (
-				aGuid    string
+				appGuid  string
 				hostname string
 			)
 
 			BeforeEach(func() {
-				aGuid = appGuid(app)
+				appGuid = applicationGuid(app)
 				hostname = generator.PrefixedRandomName("iats", "host")
-				Expect(cf.Cf("create-route", space, domain, "--hostname", hostname).Wait(defaultTimeout)).To(Exit(0))
+				Expect(cf.Cf("create-route", spaceName(), domain, "--hostname", hostname).Wait(defaultTimeout)).To(Exit(0))
 			})
 
 			It("can map route using Apps API", func() {
-				routeGuid := routeGuid(space, hostname)
-				Expect(cf.Cf("curl", fmt.Sprintf("v2/apps/%s/routes/%s", aGuid, routeGuid), "-X", "PUT").Wait(defaultTimeout)).To(Exit(0))
+				routeGuid := routeGuid(spaceName(), hostname)
+				Expect(cf.Cf("curl", fmt.Sprintf("v2/apps/%s/routes/%s", appGuid, routeGuid), "-X", "PUT").Wait(defaultTimeout)).To(Exit(0))
 
 				Eventually(func() (int, error) {
 					appURL := fmt.Sprintf("http://%s.%s", hostname, domain)
@@ -170,8 +160,8 @@ var _ = Describe("Routing", func() {
 			})
 
 			It("can map route using Routes API", func() {
-				routeGuid := routeGuid(space, hostname)
-				Expect(cf.Cf("curl", fmt.Sprintf("v2/routes/%s/apps/%s", routeGuid, aGuid), "-X", "PUT").Wait(defaultTimeout)).To(Exit(0))
+				routeGuid := routeGuid(spaceName(), hostname)
+				Expect(cf.Cf("curl", fmt.Sprintf("v2/routes/%s/apps/%s", routeGuid, appGuid), "-X", "PUT").Wait(defaultTimeout)).To(Exit(0))
 
 				Eventually(func() (int, error) {
 					appURL := fmt.Sprintf("http://%s.%s", hostname, domain)
@@ -232,9 +222,7 @@ var _ = Describe("Routing", func() {
 			)
 
 			BeforeEach(func() {
-				domain = istioDomain()
-
-				appTwo = generator.PrefixedRandomName("IATS", "APP")
+				appTwo = app + "-2"
 				Expect(cf.Cf("push", appTwo,
 					"-p", holaRoutingAsset,
 					"-f", fmt.Sprintf("%s/manifest.yml", holaRoutingAsset),
@@ -246,10 +234,9 @@ var _ = Describe("Routing", func() {
 					return getStatusCode(appTwoURL)
 				}, defaultTimeout).Should(Equal(http.StatusOK))
 
-				space := TestSetup.TestSpace.SpaceName()
 				hostname = "greetings-app"
 
-				Expect(cf.Cf("create-route", space, domain, "--hostname", hostname).Wait(defaultTimeout)).To(Exit(0))
+				Expect(cf.Cf("create-route", spaceName(), domain, "--hostname", hostname).Wait(defaultTimeout)).To(Exit(0))
 				Expect(cf.Cf("map-route", app, domain, "--hostname", hostname).Wait(defaultTimeout)).To(Exit(0))
 				Expect(cf.Cf("map-route", appTwo, domain, "--hostname", hostname).Wait(defaultTimeout)).To(Exit(0))
 			})
@@ -316,7 +303,7 @@ func getStatusCode(appURL string) (int, error) {
 	return res.StatusCode, nil
 }
 
-func appGuid(a string) string {
+func applicationGuid(a string) string {
 	appGuidCmd := cf.Cf("app", a, "--guid")
 	Expect(appGuidCmd.Wait(defaultTimeout)).To(Exit(0))
 	appGuid := string(appGuidCmd.Out.Contents())

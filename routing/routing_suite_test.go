@@ -47,6 +47,18 @@ func TestRouting(t *testing.T) {
 	RunSpecs(t, "Routing Suite")
 }
 
+func adminUserContext() workflowhelpers.UserContext {
+	return TestSetup.AdminUserContext()
+}
+
+func spaceName() string {
+	return TestSetup.TestSpace.SpaceName()
+}
+
+func organizationName() string {
+	return TestSetup.TestSpace.OrganizationName()
+}
+
 func internalDomain() string {
 	return Config.CFInternalAppsDomain
 }
