@@ -135,8 +135,7 @@ var _ = Describe("Routing", func() {
 			privateDomain := fmt.Sprintf("%s.%s", generator.PrefixedRandomName("iats", "private"), domain)
 
 			workflowhelpers.AsUser(TestSetup.AdminUserContext(), defaultTimeout, func() {
-				privateDomainGuidCmd := cf.Cf("create-domain", org, privateDomain)
-				Expect(privateDomainGuidCmd.Wait(defaultTimeout)).To(Exit(0))
+				Expect(cf.Cf("create-domain", org, privateDomain).Wait(defaultTimeout)).To(Exit(0))
 			})
 
 			privateHostname = fmt.Sprintf("someApp-%d", time.Now().UnixNano)

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/istio-acceptance-tests/config"
-	"code.cloudfoundry.org/istio-acceptance-tests/helpers"
 	"github.com/cloudfoundry-incubator/cf-test-helpers/cf"
 	"github.com/cloudfoundry-incubator/cf-test-helpers/workflowhelpers"
 	. "github.com/onsi/ginkgo"
@@ -16,24 +15,24 @@ import (
 	"github.com/sclevine/agouti"
 )
 
-func TestBookinfoDemo(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "BookinfoDemo Suite")
-}
-
 var (
 	agoutiDriver   *agouti.WebDriver
 	c              config.Config
+	TestSetup      *workflowhelpers.ReproducibleTestSuiteSetup
 	defaultTimeout = 120 * time.Second
 )
 
-var _ = BeforeSuite(func() {
+func TestBookinfoDemo(t *testing.T) {
+	RegisterFailHandler(Fail)
+
 	var err error
 	configPath := os.Getenv("CONFIG")
 	Expect(configPath).NotTo(BeEmpty())
 	fmt.Println(configPath)
 	c, err = config.NewConfig(configPath)
 	Expect(err).ToNot(HaveOccurred())
+	Expect(c.Validate()).To(Succeed())
+
 	_, ok := os.LookupEnv("INTERNAL_DOMAIN")
 	if !ok {
 		os.Setenv("INTERNAL_DOMAIN", c.CFInternalAppsDomain)
@@ -43,67 +42,49 @@ var _ = BeforeSuite(func() {
 		os.Setenv("API_DOMAIN", c.IstioDomain)
 	}
 
-	tw := helpers.TestWorkspace{}
+	var _ = SynchronizedBeforeSuite(func() []byte {
+		TestSetup = workflowhelpers.NewTestSuiteSetup(c)
+		TestSetup.Setup()
 
-	uc := workflowhelpers.NewUserContext(fmt.Sprintf("api.%s", c.CFSystemDomain), helpers.TestUser{c}, tw, true, defaultTimeout)
-	uc.Login()
+		workflowhelpers.AsUser(TestSetup.AdminUserContext(), defaultTimeout, func() {
+			Expect(cf.Cf("enable-feature-flag", "diego_docker").Wait(defaultTimeout)).To(Exit(0))
+		})
 
-	orgCmd := cf.Cf("create-org", tw.OrganizationName()).Wait(defaultTimeout)
-	Expect(orgCmd).To(Exit(0))
-	spaceCmd := cf.Cf("create-space", "-o", tw.OrganizationName(), tw.SpaceName()).Wait(defaultTimeout)
-	Expect(spaceCmd).To(Exit(0))
+		Expect(cf.Cf("push", "productpage", "-o", c.ProductPageDockerWithTag, "-d", c.IstioDomain).Wait(defaultTimeout)).To(Exit(0))
+		Expect(cf.Cf("push", "ratings", "-o", c.RatingsDockerWithTag, "-d", c.CFInternalAppsDomain).Wait(defaultTimeout)).To(Exit(0))
+		Expect(cf.Cf("push", "reviews", "-o", c.ReviewsDockerWithTag, "-d", c.CFInternalAppsDomain, "-u", "none").Wait(defaultTimeout)).To(Exit(0))
+		Expect(cf.Cf("push", "details", "-o", c.DetailsDockerWithTag, "-d", c.CFInternalAppsDomain).Wait(defaultTimeout)).To(Exit(0))
+		Expect(cf.Cf("set-env", "productpage", "SERVICES_DOMAIN", c.CFInternalAppsDomain).Wait(defaultTimeout)).To(Exit(0))
+		Expect(cf.Cf("restage", "productpage").Wait(defaultTimeout)).To(Exit(0))
+		Expect(cf.Cf("set-env", "reviews", "SERVICES_DOMAIN", c.CFInternalAppsDomain).Wait(defaultTimeout)).To(Exit(0))
+		Expect(cf.Cf("restage", "reviews").Wait(defaultTimeout)).To(Exit(0))
 
-	enableDockerCmd := cf.Cf("enable-feature-flag", "diego_docker").Wait(defaultTimeout)
-	Expect(enableDockerCmd).To(Exit(0))
+		workflowhelpers.AsUser(TestSetup.AdminUserContext(), defaultTimeout, func() {
+			Expect(cf.Cf("target", "-o", TestSetup.TestSpace.OrganizationName(), "-s", TestSetup.TestSpace.SpaceName()).Wait(defaultTimeout)).To(Exit(0))
+			Expect(cf.Cf("add-network-policy", "productpage", "--destination-app", "details", "--protocol", "tcp", "--port", "9080").Wait(defaultTimeout)).To(Exit(0))
+			Expect(cf.Cf("add-network-policy", "productpage", "--destination-app", "reviews", "--protocol", "tcp", "--port", "9080").Wait(defaultTimeout)).To(Exit(0))
+			Expect(cf.Cf("add-network-policy", "reviews", "--destination-app", "ratings", "--protocol", "tcp", "--port", "9080").Wait(defaultTimeout)).To(Exit(0))
+		})
+		return []byte{}
+	}, func(data []byte) {
+		agoutiDriver = agouti.ChromeDriver(
+			agouti.ChromeOptions("args", []string{
+				"--headless",
+				"--disable-gpu",
+				"--allow-insecure-localhost",
+				"--no-sandbox",
+			}),
+		)
+		Expect(agoutiDriver.Start()).To(Succeed())
+	})
 
-	uc.TargetSpace()
+	var _ = SynchronizedAfterSuite(func() {
+		if TestSetup != nil {
+			TestSetup.Teardown()
+		}
+	}, func() {
+		Expect(agoutiDriver.Stop()).To(Succeed())
+	})
 
-	productPagePush := cf.Cf("push", "productpage", "-o", c.ProductPageDockerWithTag, "-d", c.IstioDomain).Wait(defaultTimeout)
-	Expect(productPagePush).To(Exit(0))
-	ratingsPush := cf.Cf("push", "ratings", "-o", c.RatingsDockerWithTag, "-d", c.CFInternalAppsDomain).Wait(defaultTimeout)
-	Expect(ratingsPush).To(Exit(0))
-	reviewsPush := cf.Cf("push", "reviews", "-o", c.ReviewsDockerWithTag, "-d", c.CFInternalAppsDomain, "-u", "none").Wait(defaultTimeout)
-	Expect(reviewsPush).To(Exit(0))
-	detailsPush := cf.Cf("push", "details", "-o", c.DetailsDockerWithTag, "-d", c.CFInternalAppsDomain).Wait(defaultTimeout)
-	Expect(detailsPush).To(Exit(0))
-
-	setProductEnvVar := cf.Cf("set-env", "productpage", "SERVICES_DOMAIN", c.CFInternalAppsDomain).Wait(defaultTimeout)
-	Expect(setProductEnvVar).To(Exit(0))
-	productRestage := cf.Cf("restage", "productpage").Wait(defaultTimeout)
-	Expect(productRestage).To(Exit(0))
-	setReviewsEnvVar := cf.Cf("set-env", "reviews", "SERVICES_DOMAIN", c.CFInternalAppsDomain).Wait(defaultTimeout)
-	Expect(setReviewsEnvVar).To(Exit(0))
-	reviewsRestage := cf.Cf("restage", "reviews").Wait(defaultTimeout)
-	Expect(reviewsRestage).To(Exit(0))
-
-	productDetailsPolicy := cf.Cf("add-network-policy", "productpage", "--destination-app", "details", "--protocol", "tcp", "--port", "9080").Wait(defaultTimeout)
-	Expect(productDetailsPolicy).To(Exit(0))
-	productReviewsPolicy := cf.Cf("add-network-policy", "productpage", "--destination-app", "reviews", "--protocol", "tcp", "--port", "9080").Wait(defaultTimeout)
-	Expect(productReviewsPolicy).To(Exit(0))
-	reviewsRatingsPolicy := cf.Cf("add-network-policy", "reviews", "--destination-app", "ratings", "--protocol", "tcp", "--port", "9080").Wait(defaultTimeout)
-	Expect(reviewsRatingsPolicy).To(Exit(0))
-
-	agoutiDriver = agouti.ChromeDriver(
-		agouti.ChromeOptions("args", []string{
-			"--headless",
-			"--disable-gpu",
-			"--allow-insecure-localhost",
-			"--no-sandbox",
-		}),
-	)
-	Expect(agoutiDriver.Start()).To(Succeed())
-})
-
-var _ = AfterSuite(func() {
-	cleanUpProductPage := cf.Cf("delete", "productpage", "-f", "-r").Wait(defaultTimeout)
-	Expect(cleanUpProductPage).To(Exit(0))
-	cleanUpReviews := cf.Cf("delete", "reviews", "-f", "-r").Wait(defaultTimeout)
-	Expect(cleanUpReviews).To(Exit(0))
-	cleanUpRatings := cf.Cf("delete", "ratings", "-f", "-r").Wait(defaultTimeout)
-	Expect(cleanUpRatings).To(Exit(0))
-	cleanUpDetails := cf.Cf("delete", "details", "-f", "-r").Wait(defaultTimeout)
-	Expect(cleanUpDetails).To(Exit(0))
-	cleanUpCmd := cf.Cf("delete-org", helpers.TestWorkspace{}.OrganizationName(), "-f").Wait(defaultTimeout)
-	Expect(cleanUpCmd).To(Exit(0))
-	Expect(agoutiDriver.Stop()).To(Succeed())
-})
+	RunSpecs(t, "BookinfoDemo Suite")
+}
