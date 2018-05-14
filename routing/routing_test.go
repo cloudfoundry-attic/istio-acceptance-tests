@@ -1,7 +1,6 @@
 package routing_test
 
 import (
-	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -12,10 +11,9 @@ import (
 	"strings"
 	"time"
 
-	routing_helpers "code.cloudfoundry.org/cf-routing-test-helpers/helpers"
-	"code.cloudfoundry.org/istio-acceptance-tests/helpers"
 	"github.com/cloudfoundry-incubator/cf-test-helpers/cf"
 	"github.com/cloudfoundry-incubator/cf-test-helpers/generator"
+	"github.com/cloudfoundry-incubator/cf-test-helpers/workflowhelpers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gexec"
@@ -33,12 +31,11 @@ var _ = Describe("Routing", func() {
 		domain = istioDomain()
 
 		app = generator.PrefixedRandomName("IATS", "APP")
-		pushCmd := cf.Cf("push", app,
+		Expect(cf.Cf("push", app,
 			"-p", helloRoutingAsset,
 			"-f", fmt.Sprintf("%s/manifest.yml", helloRoutingAsset),
 			"-d", domain,
-			"-i", "1").Wait(defaultTimeout)
-		Expect(pushCmd).To(Exit(0))
+			"-i", "1").Wait(defaultTimeout)).To(Exit(0))
 		appURL = fmt.Sprintf("http://%s.%s", app, domain)
 
 		Eventually(func() (int, error) {
@@ -46,15 +43,9 @@ var _ = Describe("Routing", func() {
 		}, defaultTimeout).Should(Equal(http.StatusOK))
 	})
 
-	AfterEach(func() {
-		routing_helpers.AppReport(app, defaultTimeout)
-		routing_helpers.DeleteApp(app, defaultTimeout)
-	})
-
 	Context("when the app is stopped", func() {
 		It("returns a 503", func() {
-			stopCmd := cf.Cf("stop", app).Wait(defaultTimeout)
-			Expect(stopCmd).To(Exit(0))
+			Expect(cf.Cf("stop", app).Wait(defaultTimeout)).To(Exit(0))
 
 			Eventually(func() (int, error) {
 				return getStatusCode(appURL)
@@ -66,21 +57,11 @@ var _ = Describe("Routing", func() {
 		var (
 			hostnameOne string
 			hostnameTwo string
-			space       string
-			org         string
 		)
 
 		BeforeEach(func() {
-			tw := helpers.TestWorkspace{}
-			space = tw.SpaceName()
-			org = tw.OrganizationName()
-			hostnameOne = "app1"
-			hostnameTwo = "app2"
-
-			createRouteOneCmd := cf.Cf("create-route", space, domain, "--hostname", hostnameOne)
-			Expect(createRouteOneCmd.Wait(defaultTimeout)).To(Exit(0))
-			createRouteTwoCmd := cf.Cf("create-route", space, domain, "--hostname", hostnameTwo)
-			Expect(createRouteTwoCmd.Wait(defaultTimeout)).To(Exit(0))
+			hostnameOne = generator.PrefixedRandomName("IATS", "HOST")
+			hostnameTwo = hostnameOne + "-2"
 
 			mapRouteOneCmd := cf.Cf("map-route", app, domain, "--hostname", hostnameOne)
 			Expect(mapRouteOneCmd.Wait(defaultTimeout)).To(Exit(0))
@@ -140,35 +121,26 @@ var _ = Describe("Routing", func() {
 
 	Context("route mappings", func() {
 		var (
-			hostname   string
-			space      string
-			org        string
-			oauthToken string
-			client     *http.Client
-			aGuid      string
+			space string
+			org   string
 		)
 
 		BeforeEach(func() {
-			tw := helpers.TestWorkspace{}
-			space = tw.SpaceName()
-			org = tw.OrganizationName()
-			hostname = fmt.Sprintf("someApp-%d", time.Now().UnixNano)
-			oauthToken = authToken()
-			tr := &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-			}
-			client = &http.Client{Transport: tr}
-			aGuid = appGuid(app)
+			space = TestSetup.TestSpace.SpaceName()
+			org = TestSetup.TestSpace.OrganizationName()
 		})
 
 		It("can map a route with a private domain", func() {
+			var privateHostname string
 			privateDomain := fmt.Sprintf("%s.%s", generator.PrefixedRandomName("iats", "private"), domain)
-			privateDomainGuidCmd := cf.Cf("create-domain", org, privateDomain)
-			Expect(privateDomainGuidCmd.Wait(defaultTimeout)).To(Exit(0))
 
-			privateHostname := fmt.Sprintf("someApp-%d", time.Now().UnixNano)
-			mapRouteCmd := cf.Cf("map-route", app, privateDomain, "--hostname", privateHostname)
-			Expect(mapRouteCmd.Wait(defaultTimeout)).To(Exit(0))
+			workflowhelpers.AsUser(TestSetup.AdminUserContext(), defaultTimeout, func() {
+				privateDomainGuidCmd := cf.Cf("create-domain", org, privateDomain)
+				Expect(privateDomainGuidCmd.Wait(defaultTimeout)).To(Exit(0))
+			})
+
+			privateHostname = fmt.Sprintf("someApp-%d", time.Now().UnixNano)
+			Expect(cf.Cf("map-route", app, privateDomain, "--hostname", privateHostname).Wait(defaultTimeout)).To(Exit(0))
 
 			Eventually(func() (int, error) {
 				appURL := fmt.Sprintf("http://%s.%s", privateHostname, privateDomain)
@@ -177,18 +149,20 @@ var _ = Describe("Routing", func() {
 		})
 
 		Context("mapping a route using both CAPI endpoints", func() {
+			var (
+				aGuid    string
+				hostname string
+			)
+
+			BeforeEach(func() {
+				aGuid = appGuid(app)
+				hostname = generator.PrefixedRandomName("iats", "host")
+				Expect(cf.Cf("create-route", space, domain, "--hostname", hostname).Wait(defaultTimeout)).To(Exit(0))
+			})
+
 			It("can map route using Apps API", func() {
-				routeGuid := routeGuid(space, domain, hostname, oauthToken, client)
-				reqURI := fmt.Sprintf("https://api.%s/v2/apps/%s/routes/%s", systemDomain(), aGuid, routeGuid)
-				req, err := http.NewRequest("PUT", reqURI, nil)
-				Expect(err).NotTo(HaveOccurred())
-
-				req.Header.Add("Authorization", oauthToken)
-
-				resp, err := client.Do(req)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(resp.StatusCode).To(Equal(http.StatusCreated))
-				defer resp.Body.Close()
+				routeGuid := routeGuid(space, hostname)
+				Expect(cf.Cf("curl", fmt.Sprintf("v2/apps/%s/routes/%s", aGuid, routeGuid), "-X", "PUT").Wait(defaultTimeout)).To(Exit(0))
 
 				Eventually(func() (int, error) {
 					appURL := fmt.Sprintf("http://%s.%s", hostname, domain)
@@ -197,17 +171,8 @@ var _ = Describe("Routing", func() {
 			})
 
 			It("can map route using Routes API", func() {
-				routeGuid := routeGuid(space, domain, hostname, oauthToken, client)
-				reqURI := fmt.Sprintf("https://api.%s/v2/routes/%s/apps/%s", systemDomain(), routeGuid, aGuid)
-				req, err := http.NewRequest("PUT", reqURI, nil)
-				Expect(err).NotTo(HaveOccurred())
-
-				req.Header.Add("Authorization", oauthToken)
-
-				resp, err := client.Do(req)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(resp.StatusCode).To(Equal(http.StatusCreated))
-				defer resp.Body.Close()
+				routeGuid := routeGuid(space, hostname)
+				Expect(cf.Cf("curl", fmt.Sprintf("v2/routes/%s/apps/%s", routeGuid, aGuid), "-X", "PUT").Wait(defaultTimeout)).To(Exit(0))
 
 				Eventually(func() (int, error) {
 					appURL := fmt.Sprintf("http://%s.%s", hostname, domain)
@@ -220,8 +185,7 @@ var _ = Describe("Routing", func() {
 	Context("round robin", func() {
 		Context("when the app has many instances", func() {
 			BeforeEach(func() {
-				scaleCmd := cf.Cf("scale", app, "-i", "2").Wait(defaultTimeout)
-				Expect(scaleCmd).To(Exit(0))
+				Expect(cf.Cf("scale", app, "-i", "2").Wait(defaultTimeout)).To(Exit(0))
 			})
 
 			It("successfully load balances between instances", func() {
@@ -272,35 +236,23 @@ var _ = Describe("Routing", func() {
 				domain = istioDomain()
 
 				appTwo = generator.PrefixedRandomName("IATS", "APP")
-				pushCmd := cf.Cf("push", appTwo,
+				Expect(cf.Cf("push", appTwo,
 					"-p", holaRoutingAsset,
 					"-f", fmt.Sprintf("%s/manifest.yml", holaRoutingAsset),
 					"-d", domain,
-					"-i", "1").Wait(defaultTimeout)
-				Expect(pushCmd).To(Exit(0))
+					"-i", "1").Wait(defaultTimeout)).To(Exit(0))
 				appTwoURL = fmt.Sprintf("http://%s.%s", appTwo, domain)
 
 				Eventually(func() (int, error) {
 					return getStatusCode(appTwoURL)
 				}, defaultTimeout).Should(Equal(http.StatusOK))
 
-				tw := helpers.TestWorkspace{}
-				space := tw.SpaceName()
+				space := TestSetup.TestSpace.SpaceName()
 				hostname = "greetings-app"
 
-				createRouteOneCmd := cf.Cf("create-route", space, domain, "--hostname", hostname)
-				Expect(createRouteOneCmd.Wait(defaultTimeout)).To(Exit(0))
-
-				mapRouteOneCmd := cf.Cf("map-route", app, domain, "--hostname", hostname)
-				Expect(mapRouteOneCmd.Wait(defaultTimeout)).To(Exit(0))
-
-				mapRouteTwoCmd := cf.Cf("map-route", appTwo, domain, "--hostname", hostname)
-				Expect(mapRouteTwoCmd.Wait(defaultTimeout)).To(Exit(0))
-			})
-
-			AfterEach(func() {
-				routing_helpers.AppReport(appTwo, defaultTimeout)
-				routing_helpers.DeleteApp(appTwo, defaultTimeout)
+				Expect(cf.Cf("create-route", space, domain, "--hostname", hostname).Wait(defaultTimeout)).To(Exit(0))
+				Expect(cf.Cf("map-route", app, domain, "--hostname", hostname).Wait(defaultTimeout)).To(Exit(0))
+				Expect(cf.Cf("map-route", appTwo, domain, "--hostname", hostname).Wait(defaultTimeout)).To(Exit(0))
 			})
 
 			It("successfully load balances requests to the apps", func() {
@@ -386,48 +338,14 @@ func domainGuid(d string) string {
 	return getEntityGuid(domainResp)
 }
 
-func routeGuid(space string, domain string, hostName string, authToken string, client *http.Client) string {
-	spaceGuid := spaceGuid(space)
-	domainGuid := domainGuid(domain)
-
-	postBody := map[string]string{
-		"domain_guid": domainGuid,
-		"space_guid":  spaceGuid,
-		"host":        hostName,
-	}
-
-	jsonBody, err := json.Marshal(postBody)
-	Expect(err).NotTo(HaveOccurred())
-
-	// create a route not using cf helpers, since it does not return the reponse body
-	// and -v returns too much stuff
-	routeCreateReq, err := http.NewRequest(
-		"POST",
-		fmt.Sprintf("https://api.%s/v2/routes", systemDomain()),
-		bytes.NewBuffer(jsonBody),
-	)
-
-	routeCreateReq.Header.Add("Authorization", authToken)
-	routeCreateReq.Header.Set("Content-Type", "Application/json")
-
-	resp, err := client.Do(routeCreateReq)
-	Expect(err).NotTo(HaveOccurred())
-	defer resp.Body.Close()
-
-	b, err := ioutil.ReadAll(resp.Body)
-	Expect(err).NotTo(HaveOccurred())
-
-	return getEntityGuid(string(b))
+func routeGuid(space string, hostname string) string {
+	routeGuidCmd := cf.Cf("curl", fmt.Sprintf("/v2/routes?q=host:%s", hostname))
+	Expect(routeGuidCmd.Wait(defaultTimeout)).To(Exit(0))
+	routeResp := string(routeGuidCmd.Out.Contents())
+	return getEntityGuid(routeResp)
 }
 
 func getEntityGuid(s string) string {
 	regex := regexp.MustCompile(`\s+"guid": "(.+)"`)
 	return regex.FindStringSubmatch(s)[1]
-}
-
-func authToken() string {
-	authTokenCmd := cf.Cf("oauth-token")
-	Expect(authTokenCmd.Wait(defaultTimeout)).To(Exit(0))
-	oauthToken := string(authTokenCmd.Out.Contents())
-	return strings.TrimSuffix(oauthToken, "\n")
 }

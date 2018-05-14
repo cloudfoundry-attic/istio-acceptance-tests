@@ -1,6 +1,8 @@
 package helpers
 
-import "code.cloudfoundry.org/istio-acceptance-tests/config"
+import (
+	"code.cloudfoundry.org/istio-acceptance-tests/config"
+)
 
 type TestUser struct {
 	config.Config
@@ -14,12 +16,15 @@ func (tu TestUser) Password() string {
 	return tu.AdminPassword
 }
 
-type TestWorkspace struct{}
+type TestWorkspace struct {
+	Org   string
+	Space string
+}
 
 func (tw TestWorkspace) OrganizationName() string {
-	return "ISTIO-ORG"
+	return tw.Org
 }
 
 func (tw TestWorkspace) SpaceName() string {
-	return "ISTIO-SPACE"
+	return tw.Space
 }
