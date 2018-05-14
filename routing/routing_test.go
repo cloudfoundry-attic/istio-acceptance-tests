@@ -104,7 +104,7 @@ var _ = Describe("Routing", func() {
 				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 			}
 			client := &http.Client{Transport: tr, Timeout: timeout}
-			hostname := "app1"
+			hostname := generator.PrefixedRandomName("IATS", "HOST")
 			mapRouteInternalCmd := cf.Cf("map-route", app, internalDomain(), "--hostname", hostname)
 			Expect(mapRouteInternalCmd.Wait(defaultTimeout)).To(Exit(0))
 
