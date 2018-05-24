@@ -36,7 +36,7 @@ var _ = Describe("Round Robin", func() {
 
 		Eventually(func() (int, error) {
 			return getStatusCode(appURL)
-		}, defaultTimeout).Should(Equal(http.StatusOK))
+		}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
 	})
 
 	Context("when the app has many instances", func() {
@@ -45,11 +45,20 @@ var _ = Describe("Round Robin", func() {
 		})
 
 		It("successfully load balances between instances", func() {
-			res, err := http.Get(appURL)
-			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() (int, error) {
+				resp, err := http.Get(appURL)
+				if err != nil {
+					return 0, err
+				}
 
-			body, err := ioutil.ReadAll(res.Body)
-			Expect(err).ToNot(HaveOccurred())
+				return resp.StatusCode, err
+			}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
+
+			resp, err := http.Get(appURL)
+			Expect(err).NotTo(HaveOccurred())
+
+			body, err := ioutil.ReadAll(resp.Body)
+			Expect(err).NotTo(HaveOccurred())
 
 			type Instance struct {
 				Index string `json:"instance_index"`

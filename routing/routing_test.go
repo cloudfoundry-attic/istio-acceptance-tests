@@ -9,6 +9,7 @@ import (
 	"github.com/cloudfoundry-incubator/cf-test-helpers/cf"
 	"github.com/cloudfoundry-incubator/cf-test-helpers/generator"
 	"github.com/cloudfoundry-incubator/cf-test-helpers/workflowhelpers"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gexec"
@@ -109,8 +110,12 @@ var _ = Describe("Routing", func() {
 
 			Eventually(func() (int, error) {
 				resp, err := client.Do(req)
+				if err != nil {
+					return 0, err
+				}
+
 				return resp.StatusCode, err
-			}, defaultTimeout).Should(Equal(http.StatusNotFound))
+			}, defaultTimeout, time.Second).Should(Equal(http.StatusNotFound))
 		})
 	})
 

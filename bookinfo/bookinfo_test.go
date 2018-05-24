@@ -30,7 +30,7 @@ var _ = Describe("Bookinfo", func() {
 		Expect(configPath).NotTo(BeEmpty())
 
 		c, err = config.NewConfig(configPath)
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 		Expect(c.Validate()).To(Succeed())
 	})
 
@@ -41,10 +41,15 @@ var _ = Describe("Bookinfo", func() {
 	var _ = Describe("Bookinfo Pages", func() {
 		Context("Product Page", func() {
 			BeforeEach(func() {
-				Expect(page.Navigate(fmt.Sprintf("http://productpage.%s", c.IstioDomain))).To(Succeed())
+				productPage := fmt.Sprintf("http://productpage.%s", c.IstioDomain)
+				Expect(page.Navigate(productPage)).To(Succeed())
+				Eventually(load(page), defaultTimeout, time.Second).Should(ContainSubstring("Simple Bookstore App"))
 			})
 
-			It("can be visited", func() {
+			It("has the correct content", func() {
+				Expect(page.FindByLink("Normal user")).To(BeFound())
+				Expect(page.FindByLink("Test user")).To(BeFound())
+
 				Expect(page).To(HaveTitle("Simple Bookstore App"))
 				Expect(page.Find("h3")).To(HaveText("Hello! This is a simple bookstore application consisting of three services as shown below"))
 			})
@@ -58,11 +63,6 @@ var _ = Describe("Bookinfo", func() {
 				Expect(html).To(ContainSubstring(fmt.Sprintf("http://details.%s:9080", internalDomain)))
 				Expect(html).To(ContainSubstring(fmt.Sprintf("http://reviews.%s:9080", internalDomain)))
 				Expect(html).To(ContainSubstring(fmt.Sprintf("http://ratings.%s:9080", internalDomain)))
-			})
-
-			It("links to the normal and test users", func() {
-				Expect(page.FindByLink("Normal user")).Should(BeFound())
-				Expect(page.FindByLink("Test user")).Should(BeFound())
 			})
 
 			Context("Normal user", func() {

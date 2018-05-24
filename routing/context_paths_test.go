@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"time"
 
 	"github.com/cloudfoundry-incubator/cf-test-helpers/cf"
 	"github.com/cloudfoundry-incubator/cf-test-helpers/generator"
@@ -49,7 +50,7 @@ var _ = Describe("Context Paths", func() {
 
 			Eventually(func() (int, error) {
 				return getStatusCode(contextPathURL)
-			}, "15s").Should(Equal(http.StatusOK))
+			}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
 
 			res, err := http.Get(contextPathURL)
 			Expect(err).ToNot(HaveOccurred())
