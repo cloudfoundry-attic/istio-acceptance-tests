@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"code.cloudfoundry.org/istio-acceptance-tests/config"
 	"github.com/sclevine/agouti"
 
 	. "github.com/onsi/ginkgo"
@@ -13,7 +14,10 @@ import (
 )
 
 var _ = Describe("Bookinfo", func() {
-	var page *agouti.Page
+	var (
+		page *agouti.Page
+		c    config.Config
+	)
 
 	BeforeEach(func() {
 		var err error
@@ -21,6 +25,13 @@ var _ = Describe("Bookinfo", func() {
 		Expect(err).NotTo(HaveOccurred())
 		SetDefaultEventuallyPollingInterval(3 * time.Second)
 		SetDefaultEventuallyTimeout(20 * time.Second)
+
+		configPath := os.Getenv("CONFIG")
+		Expect(configPath).NotTo(BeEmpty())
+
+		c, err = config.NewConfig(configPath)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(c.Validate()).To(Succeed())
 	})
 
 	AfterEach(func() {
@@ -30,7 +41,7 @@ var _ = Describe("Bookinfo", func() {
 	var _ = Describe("Bookinfo Pages", func() {
 		Context("Product Page", func() {
 			BeforeEach(func() {
-				Expect(page.Navigate(fmt.Sprintf("http://productpage.%s", os.Getenv("API_DOMAIN")))).To(Succeed())
+				Expect(page.Navigate(fmt.Sprintf("http://productpage.%s", c.IstioDomain))).To(Succeed())
 			})
 
 			It("can be visited", func() {
@@ -42,7 +53,7 @@ var _ = Describe("Bookinfo", func() {
 				html, err := page.HTML()
 				Expect(err).NotTo(HaveOccurred())
 
-				internalDomain := os.Getenv("INTERNAL_DOMAIN")
+				internalDomain := c.CFInternalAppsDomain
 
 				Expect(html).To(ContainSubstring(fmt.Sprintf("http://details.%s:9080", internalDomain)))
 				Expect(html).To(ContainSubstring(fmt.Sprintf("http://reviews.%s:9080", internalDomain)))

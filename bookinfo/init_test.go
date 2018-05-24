@@ -17,7 +17,6 @@ import (
 
 var (
 	agoutiDriver   *agouti.WebDriver
-	c              config.Config
 	TestSetup      *workflowhelpers.ReproducibleTestSuiteSetup
 	defaultTimeout = 120 * time.Second
 )
@@ -33,24 +32,16 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	configPath := os.Getenv("CONFIG")
 	Expect(configPath).NotTo(BeEmpty())
 
-	c, err = config.NewConfig(configPath)
+	c, err := config.NewConfig(configPath)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(c.Validate()).To(Succeed())
 
-	_, ok := os.LookupEnv("INTERNAL_DOMAIN")
-	if !ok {
-		os.Setenv("INTERNAL_DOMAIN", c.CFInternalAppsDomain)
-	}
-	_, ok = os.LookupEnv("API_DOMAIN")
-	if !ok {
-		os.Setenv("API_DOMAIN", c.IstioDomain)
-	}
+	TestSetup = workflowhelpers.NewTestSuiteSetup(c)
+	TestSetup.Setup()
 
 	workflowhelpers.AsUser(TestSetup.AdminUserContext(), defaultTimeout, func() {
 		Expect(cf.Cf("enable-feature-flag", "diego_docker").Wait(defaultTimeout)).To(Exit(0))
 	})
-	TestSetup = workflowhelpers.NewTestSuiteSetup(c)
-	TestSetup.Setup()
 
 	Expect(cf.Cf("push", "productpage", "-o", c.ProductPageDockerWithTag, "-d", c.IstioDomain).Wait(defaultTimeout)).To(Exit(0))
 	Expect(cf.Cf("push", "ratings", "-o", c.RatingsDockerWithTag, "-d", c.CFInternalAppsDomain).Wait(defaultTimeout)).To(Exit(0))
@@ -67,6 +58,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 		Expect(cf.Cf("add-network-policy", "productpage", "--destination-app", "reviews", "--protocol", "tcp", "--port", "9080").Wait(defaultTimeout)).To(Exit(0))
 		Expect(cf.Cf("add-network-policy", "reviews", "--destination-app", "ratings", "--protocol", "tcp", "--port", "9080").Wait(defaultTimeout)).To(Exit(0))
 	})
+
 	return []byte{}
 }, func(data []byte) {
 	agoutiDriver = agouti.ChromeDriver(
@@ -77,6 +69,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 			"--no-sandbox",
 		}),
 	)
+
 	Expect(agoutiDriver.Start()).To(Succeed())
 })
 
