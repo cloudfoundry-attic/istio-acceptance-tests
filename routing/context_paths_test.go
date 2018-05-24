@@ -70,8 +70,9 @@ var _ = Describe("Context Paths", func() {
 		})
 	})
 
-	Context("when unmapping a route with a contextpath", func() {
-		It("should receive a 404 during a request", func() {
+	Context("when manipulating a route with a context path", func() {
+		It("routes continues to route", func() {
+			By("unmapping the route")
 			contextPathURL := fmt.Sprintf("http://%s.%s%s", hostname, domain, contextPath)
 
 			Eventually(func() (int, error) {
@@ -85,6 +86,24 @@ var _ = Describe("Context Paths", func() {
 			Eventually(func() (int, error) {
 				return getStatusCode(contextPathURL)
 			}, defaultTimeout, time.Second).Should(Equal(http.StatusNotFound))
+
+			By("deleting the route")
+			Expect(cf.Cf("delete-route", domain,
+				"-f",
+				"--hostname", hostname,
+				"--path", contextPath).Wait(defaultTimeout)).To(Exit(0))
+
+			Eventually(func() (int, error) {
+				return getStatusCode(contextPathURL)
+			}, defaultTimeout, time.Second).Should(Equal(http.StatusNotFound))
+
+			By("verifying context path still routes to best match")
+			Expect(cf.Cf("map-route", app, domain,
+				"--hostname", hostname).Wait(defaultTimeout)).To(Exit(0))
+
+			Eventually(func() (int, error) {
+				return getStatusCode(contextPathURL)
+			}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
 		})
 	})
 })
