@@ -2,13 +2,8 @@ package routing_test
 
 import (
 	"crypto/tls"
-	"encoding/json"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"net/http"
-	"regexp"
-	"strings"
 	"time"
 
 	"github.com/cloudfoundry-incubator/cf-test-helpers/cf"
@@ -128,7 +123,7 @@ var _ = Describe("Routing", func() {
 				Expect(cf.Cf("create-domain", organizationName(), privateDomain).Wait(defaultTimeout)).To(Exit(0))
 			})
 
-			privateHostname = fmt.Sprintf("someApp-%d", time.Now().UnixNano)
+			privateHostname = fmt.Sprintf("someApp-%d", time.Now().UnixNano())
 			Expect(cf.Cf("map-route", app, privateDomain, "--hostname", privateHostname).Wait(defaultTimeout)).To(Exit(0))
 
 			Eventually(func() (int, error) {
@@ -170,168 +165,9 @@ var _ = Describe("Routing", func() {
 			})
 		})
 	})
-
-	Context("round robin", func() {
-		Context("when the app has many instances", func() {
-			BeforeEach(func() {
-				Expect(cf.Cf("scale", app, "-i", "2").Wait(defaultTimeout)).To(Exit(0))
-			})
-
-			It("successfully load balances between instances", func() {
-				res, err := http.Get(appURL)
-				Expect(err).ToNot(HaveOccurred())
-
-				body, err := ioutil.ReadAll(res.Body)
-				Expect(err).ToNot(HaveOccurred())
-
-				type Instance struct {
-					Index string `json:"instance_index"`
-					GUID  string `json:"instance_guid"`
-				}
-				var instanceOne Instance
-				err = json.Unmarshal(body, &instanceOne)
-				Expect(err).NotTo(HaveOccurred())
-
-				Eventually(func() (Instance, error) {
-					res, err := http.Get(appURL)
-					if err != nil {
-						return Instance{}, err
-					}
-
-					body, err := ioutil.ReadAll(res.Body)
-					if err != nil {
-						return Instance{}, err
-					}
-
-					var instanceTwo Instance
-					err = json.Unmarshal(body, &instanceTwo)
-					if err != nil {
-						return Instance{}, err
-					}
-					return instanceTwo, nil
-				}, defaultTimeout, time.Second).ShouldNot(Equal(instanceOne))
-			})
-		})
-
-		Context("when mapping a route to multiple apps", func() {
-			var (
-				holaRoutingAsset = "../assets/hola-golang"
-				appTwo           string
-				appTwoURL        string
-				hostname         string
-			)
-
-			BeforeEach(func() {
-				appTwo = app + "-2"
-				Expect(cf.Cf("push", appTwo,
-					"-p", holaRoutingAsset,
-					"-f", fmt.Sprintf("%s/manifest.yml", holaRoutingAsset),
-					"-d", domain,
-					"-i", "1").Wait(defaultTimeout)).To(Exit(0))
-				appTwoURL = fmt.Sprintf("http://%s.%s", appTwo, domain)
-
-				Eventually(func() (int, error) {
-					return getStatusCode(appTwoURL)
-				}, defaultTimeout).Should(Equal(http.StatusOK))
-
-				hostname = "greetings-app"
-
-				Expect(cf.Cf("create-route", spaceName(), domain, "--hostname", hostname).Wait(defaultTimeout)).To(Exit(0))
-				Expect(cf.Cf("map-route", app, domain, "--hostname", hostname).Wait(defaultTimeout)).To(Exit(0))
-				Expect(cf.Cf("map-route", appTwo, domain, "--hostname", hostname).Wait(defaultTimeout)).To(Exit(0))
-			})
-
-			It("successfully load balances requests to the apps", func() {
-				res, err := http.Get(appURL)
-				Expect(err).ToNot(HaveOccurred())
-
-				body, err := ioutil.ReadAll(res.Body)
-				Expect(err).ToNot(HaveOccurred())
-
-				type AppResponse struct {
-					Greeting string `json:"greeting"`
-				}
-
-				var appOneResp AppResponse
-				err = json.Unmarshal(body, &appOneResp)
-				Expect(err).ToNot(HaveOccurred())
-
-				Eventually(func() (AppResponse, error) {
-					res, err := http.Get(appTwoURL)
-					if err != nil {
-						return AppResponse{}, err
-					}
-
-					body, err := ioutil.ReadAll(res.Body)
-					if err != nil {
-						return AppResponse{}, err
-					}
-
-					var appTwoResp AppResponse
-					err = json.Unmarshal(body, &appTwoResp)
-					if err != nil {
-						return AppResponse{}, err
-					}
-
-					return appTwoResp, nil
-				}, defaultTimeout, time.Second).ShouldNot(Equal(appOneResp))
-			})
-		})
-	})
 })
 
 type Instance struct {
 	Index string `json:"instance_index"`
 	GUID  string `json:"instance_guid"`
-}
-
-func getAppResponse(resp io.ReadCloser) Instance {
-	body, err := ioutil.ReadAll(resp)
-	Expect(err).ToNot(HaveOccurred())
-
-	var instance Instance
-	err = json.Unmarshal(body, &instance)
-	Expect(err).NotTo(HaveOccurred())
-	return instance
-}
-
-func getStatusCode(appURL string) (int, error) {
-	res, err := http.Get(appURL)
-	if err != nil {
-		return 0, err
-	}
-	return res.StatusCode, nil
-}
-
-func applicationGuid(a string) string {
-	appGuidCmd := cf.Cf("app", a, "--guid")
-	Expect(appGuidCmd.Wait(defaultTimeout)).To(Exit(0))
-	appGuid := string(appGuidCmd.Out.Contents())
-	return strings.TrimSuffix(appGuid, "\n")
-}
-
-func spaceGuid(s string) string {
-	spaceGuidCmd := cf.Cf("space", s, "--guid")
-	Expect(spaceGuidCmd.Wait(defaultTimeout)).To(Exit(0))
-	spaceGuid := string(spaceGuidCmd.Out.Contents())
-	return strings.TrimSuffix(spaceGuid, "\n")
-}
-
-func domainGuid(d string) string {
-	domainGuidCmd := cf.Cf("curl", "/v2/domains?q=name:"+d)
-	Expect(domainGuidCmd.Wait(defaultTimeout)).To(Exit(0))
-	domainResp := string(domainGuidCmd.Out.Contents())
-	return getEntityGuid(domainResp)
-}
-
-func routeGuid(space string, hostname string) string {
-	routeGuidCmd := cf.Cf("curl", fmt.Sprintf("/v2/routes?q=host:%s", hostname))
-	Expect(routeGuidCmd.Wait(defaultTimeout)).To(Exit(0))
-	routeResp := string(routeGuidCmd.Out.Contents())
-	return getEntityGuid(routeResp)
-}
-
-func getEntityGuid(s string) string {
-	regex := regexp.MustCompile(`\s+"guid": "(.+)"`)
-	return regex.FindStringSubmatch(s)[1]
 }
