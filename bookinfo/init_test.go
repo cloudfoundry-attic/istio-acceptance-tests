@@ -1,4 +1,4 @@
-package bookinfo_demo
+package bookinfo
 
 import (
 	"os"
@@ -8,10 +8,11 @@ import (
 	"code.cloudfoundry.org/istio-acceptance-tests/config"
 	"github.com/cloudfoundry-incubator/cf-test-helpers/cf"
 	"github.com/cloudfoundry-incubator/cf-test-helpers/workflowhelpers"
+	"github.com/sclevine/agouti"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gexec"
-	"github.com/sclevine/agouti"
 )
 
 var (
@@ -21,10 +22,10 @@ var (
 	defaultTimeout = 120 * time.Second
 )
 
-func TestBookinfoDemo(t *testing.T) {
+func TestBookinfo(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	RunSpecs(t, "BookinfoDemo Suite")
+	RunSpecs(t, "Bookinfo Suite")
 }
 
 var _ = SynchronizedBeforeSuite(func() []byte {

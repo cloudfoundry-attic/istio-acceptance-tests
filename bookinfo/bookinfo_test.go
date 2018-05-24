@@ -1,17 +1,18 @@
-package bookinfo_demo
+package bookinfo
 
 import (
 	"fmt"
 	"os"
 	"time"
 
+	"github.com/sclevine/agouti"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/sclevine/agouti"
 	. "github.com/sclevine/agouti/matchers"
 )
 
-var _ = Describe("DemoAcceptance", func() {
+var _ = Describe("Bookinfo", func() {
 	var page *agouti.Page
 
 	BeforeEach(func() {
