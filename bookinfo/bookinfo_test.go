@@ -71,20 +71,20 @@ var _ = Describe("Bookinfo", func() {
 				})
 
 				It("navigates to the product page for the Comedy of Errors", func() {
-					Eventually(load(page)).Should(ContainSubstring("The Comedy of Errors"))
+					Eventually(load(page), defaultTimeout, time.Second).Should(ContainSubstring("The Comedy of Errors"))
 				})
 
 				It("displays details successfully", func() {
-					Eventually(load(page)).Should(ContainSubstring("1234567890"))
+					Eventually(load(page), defaultTimeout, time.Second).Should(ContainSubstring("1234567890"))
 				})
 
 				It("displays reviews successfully", func() {
-					Eventually(load(page)).Should(ContainSubstring("An extremely entertaining play by Shakespeare."))
+					Eventually(load(page), defaultTimeout, time.Second).Should(ContainSubstring("An extremely entertaining play by Shakespeare."))
 				})
 
 				It("displays red ratings successfully", func() {
-					Eventually(load(page)).Should(ContainSubstring(`font color="red"`))
-					Eventually(load(page)).Should(ContainSubstring("glyphicon glyphicon-star"))
+					Eventually(load(page), defaultTimeout, time.Second).Should(ContainSubstring(`font color="red"`))
+					Eventually(load(page), defaultTimeout, time.Second).Should(ContainSubstring("glyphicon glyphicon-star"))
 				})
 			})
 		})
