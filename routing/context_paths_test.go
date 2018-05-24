@@ -69,4 +69,22 @@ var _ = Describe("Context Paths", func() {
 			Expect(appResponse.Greeting).To(Equal("hello"))
 		})
 	})
+
+	Context("when unmapping a route with a contextpath", func() {
+		It("should receive a 404 during a request", func() {
+			contextPathURL := fmt.Sprintf("http://%s.%s%s", hostname, domain, contextPath)
+
+			Eventually(func() (int, error) {
+				return getStatusCode(contextPathURL)
+			}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
+
+			Expect(cf.Cf("unmap-route", app, domain,
+				"--hostname", hostname,
+				"--path", contextPath).Wait(defaultTimeout)).To(Exit(0))
+
+			Eventually(func() (int, error) {
+				return getStatusCode(contextPathURL)
+			}, defaultTimeout, time.Second).Should(Equal(http.StatusNotFound))
+		})
+	})
 })
