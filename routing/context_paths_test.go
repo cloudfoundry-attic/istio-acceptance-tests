@@ -15,6 +15,11 @@ import (
 	. "github.com/onsi/gomega/gexec"
 )
 
+type AppResponse struct {
+	Greeting     string `json:"greeting"`
+	InstanceGUID string `json:"instance_guid"`
+}
+
 var _ = Describe("Context Paths", func() {
 	var (
 		domain            string
@@ -57,10 +62,6 @@ var _ = Describe("Context Paths", func() {
 
 			body, err := ioutil.ReadAll(res.Body)
 			Expect(err).ToNot(HaveOccurred())
-
-			type AppResponse struct {
-				Greeting string `json:"greeting"`
-			}
 
 			var appResponse AppResponse
 			err = json.Unmarshal(body, &appResponse)
@@ -127,6 +128,69 @@ var _ = Describe("Context Paths", func() {
 			Eventually(func() (int, error) {
 				return getStatusCode(fmt.Sprintf("http://%s.%s", otherHostname, domain))
 			}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
+		})
+	})
+
+	Context("when multiple apps are pushed", func() {
+		var (
+			otherContextPath string
+		)
+
+		BeforeEach(func() {
+			otherContextPath = "/everything/matters"
+
+			app = generator.PrefixedRandomName("IATS", "APP")
+			Expect(cf.Cf("push", app,
+				"-p", helloRoutingAsset,
+				"-f", fmt.Sprintf("%s/manifest.yml", helloRoutingAsset),
+				"-n", hostname,
+				"-d", domain,
+				"--route-path", otherContextPath,
+				"-i", "1").Wait(defaultTimeout)).To(Exit(0))
+		})
+
+		It("routes succesfully to different apps with mapped to the same hostname", func() {
+			var instanceGuid string
+			Eventually(func() (int, error) {
+				res, err := http.Get(fmt.Sprintf("http://%s.%s%s", hostname, domain, otherContextPath))
+				if err != nil {
+					return 0, nil
+				}
+
+				body, err := ioutil.ReadAll(res.Body)
+				if err != nil {
+					return 0, nil
+				}
+
+				var appResponse AppResponse
+				err = json.Unmarshal(body, &appResponse)
+				if err != nil {
+					return 0, nil
+				}
+				instanceGuid = appResponse.InstanceGUID
+
+				return res.StatusCode, nil
+			}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
+
+			Consistently(func() (bool, error) {
+				res, err := http.Get(fmt.Sprintf("http://%s.%s%s", hostname, domain, contextPath))
+				if err != nil {
+					return false, err
+				}
+
+				body, err := ioutil.ReadAll(res.Body)
+				if err != nil {
+					return false, err
+				}
+
+				var appResponse AppResponse
+				err = json.Unmarshal(body, &appResponse)
+				if err != nil {
+					return false, err
+				}
+
+				return instanceGuid != appResponse.InstanceGUID, nil
+			}, "15s", time.Second).Should(BeTrue())
 		})
 	})
 })
