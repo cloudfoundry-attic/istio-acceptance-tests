@@ -106,4 +106,27 @@ var _ = Describe("Context Paths", func() {
 			}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
 		})
 	})
+
+	Context("when mapping multiple routes to the same app", func() {
+		It("routes successfully", func() {
+			By("mapping a second context path")
+			contextPathTwo := "/nothing/matters/again"
+			Expect(cf.Cf("map-route", app, domain,
+				"--hostname", hostname,
+				"--path", contextPathTwo).Wait(defaultTimeout)).To(Exit(0))
+
+			Eventually(func() (int, error) {
+				return getStatusCode(fmt.Sprintf("http://%s.%s%s", hostname, domain, contextPathTwo))
+			}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
+
+			By("mapping a second hostname")
+			otherHostname := generator.PrefixedRandomName("IATS", "otherhost")
+			Expect(cf.Cf("map-route", app, domain,
+				"--hostname", otherHostname).Wait(defaultTimeout)).To(Exit(0))
+
+			Eventually(func() (int, error) {
+				return getStatusCode(fmt.Sprintf("http://%s.%s", otherHostname, domain))
+			}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
+		})
+	})
 })
