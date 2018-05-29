@@ -134,13 +134,14 @@ var _ = Describe("Context Paths", func() {
 	Context("when multiple apps are pushed", func() {
 		var (
 			otherContextPath string
+			otherApp         string
 		)
 
 		BeforeEach(func() {
 			otherContextPath = "/everything/matters"
 
-			app = generator.PrefixedRandomName("IATS", "APP")
-			Expect(cf.Cf("push", app,
+			otherApp = generator.PrefixedRandomName("IATS", "APP")
+			Expect(cf.Cf("push", otherApp,
 				"-p", helloRoutingAsset,
 				"-f", fmt.Sprintf("%s/manifest.yml", helloRoutingAsset),
 				"-n", hostname,
@@ -149,48 +150,100 @@ var _ = Describe("Context Paths", func() {
 				"-i", "1").Wait(defaultTimeout)).To(Exit(0))
 		})
 
-		It("routes succesfully to different apps with mapped to the same hostname", func() {
-			var instanceGuid string
-			Eventually(func() (int, error) {
-				res, err := http.Get(fmt.Sprintf("http://%s.%s%s", hostname, domain, otherContextPath))
-				if err != nil {
-					return 0, nil
-				}
+		Context("when multiple apps have the same hostname", func() {
+			It("routes succesfully to each app", func() {
+				var instanceGuid string
+				Eventually(func() (int, error) {
+					res, err := http.Get(fmt.Sprintf("http://%s.%s%s", hostname, domain, otherContextPath))
+					if err != nil {
+						return 0, err
+					}
 
-				body, err := ioutil.ReadAll(res.Body)
-				if err != nil {
-					return 0, nil
-				}
+					body, err := ioutil.ReadAll(res.Body)
+					if err != nil {
+						return 0, err
+					}
 
-				var appResponse AppResponse
-				err = json.Unmarshal(body, &appResponse)
-				if err != nil {
-					return 0, nil
-				}
-				instanceGuid = appResponse.InstanceGUID
+					var appResponse AppResponse
+					err = json.Unmarshal(body, &appResponse)
+					if err != nil {
+						return 0, err
+					}
+					instanceGuid = appResponse.InstanceGUID
 
-				return res.StatusCode, nil
-			}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
+					return res.StatusCode, nil
+				}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
 
-			Consistently(func() (bool, error) {
-				res, err := http.Get(fmt.Sprintf("http://%s.%s%s", hostname, domain, contextPath))
-				if err != nil {
-					return false, err
-				}
+				Consistently(func() (bool, error) {
+					res, err := http.Get(fmt.Sprintf("http://%s.%s%s", hostname, domain, contextPath))
+					if err != nil {
+						return false, err
+					}
 
-				body, err := ioutil.ReadAll(res.Body)
-				if err != nil {
-					return false, err
-				}
+					body, err := ioutil.ReadAll(res.Body)
+					if err != nil {
+						return false, err
+					}
 
-				var appResponse AppResponse
-				err = json.Unmarshal(body, &appResponse)
-				if err != nil {
-					return false, err
-				}
+					var appResponse AppResponse
+					err = json.Unmarshal(body, &appResponse)
+					if err != nil {
+						return false, err
+					}
 
-				return instanceGuid != appResponse.InstanceGUID, nil
-			}, "15s", time.Second).Should(BeTrue())
+					return instanceGuid != appResponse.InstanceGUID, nil
+				}, "15s", time.Second).Should(BeTrue())
+			})
+		})
+
+		Context("when mapping the same context path to multiple apps", func() {
+			It("load balances between them", func() {
+				Expect(cf.Cf("map-route", otherApp, domain,
+					"--hostname", hostname,
+					"--path", contextPath).Wait(defaultTimeout)).To(Exit(0))
+
+				var instanceGuid string
+				Eventually(func() (int, error) {
+					res, err := http.Get(fmt.Sprintf("http://%s.%s%s", hostname, domain, contextPath))
+					if err != nil {
+						return 0, err
+					}
+
+					body, err := ioutil.ReadAll(res.Body)
+					if err != nil {
+						return 0, err
+					}
+
+					var appResponse AppResponse
+					err = json.Unmarshal(body, &appResponse)
+					if err != nil {
+						return 0, err
+					}
+					instanceGuid = appResponse.InstanceGUID
+
+					return res.StatusCode, nil
+				}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
+
+				Eventually(func() (bool, error) {
+					res, err := http.Get(fmt.Sprintf("http://%s.%s%s", hostname, domain, contextPath))
+					if err != nil {
+						return false, err
+					}
+
+					body, err := ioutil.ReadAll(res.Body)
+					if err != nil {
+						return false, err
+					}
+
+					var appResponse AppResponse
+					err = json.Unmarshal(body, &appResponse)
+					if err != nil {
+						return false, err
+					}
+
+					return instanceGuid != appResponse.InstanceGUID, nil
+				}, defaultTimeout, time.Second).Should(BeTrue())
+			})
 		})
 	})
 })
