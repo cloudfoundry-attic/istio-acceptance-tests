@@ -42,18 +42,13 @@ var _ = Describe("Round Robin", func() {
 	Context("when the app has many instances", func() {
 		BeforeEach(func() {
 			Expect(cf.Cf("scale", app, "-i", "2").Wait(defaultTimeout)).To(Exit(0))
+
+			Eventually(func() (int, error) {
+				return getStatusCode(appURL)
+			}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
 		})
 
 		It("successfully load balances between instances", func() {
-			Eventually(func() (int, error) {
-				resp, err := http.Get(appURL)
-				if err != nil {
-					return 0, err
-				}
-
-				return resp.StatusCode, err
-			}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
-
 			resp, err := http.Get(appURL)
 			Expect(err).NotTo(HaveOccurred())
 
