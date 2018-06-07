@@ -105,7 +105,7 @@ var _ = Describe("Round Robin", func() {
 				return getStatusCode(appTwoURL)
 			}, defaultTimeout).Should(Equal(http.StatusOK))
 
-			hostname = "greetings-app"
+			hostname = generator.PrefixedRandomName("greetings", "app")
 
 			Expect(cf.Cf("create-route", spaceName(), domain, "--hostname", hostname).Wait(defaultTimeout)).To(Exit(0))
 			Expect(cf.Cf("map-route", app, domain, "--hostname", hostname).Wait(defaultTimeout)).To(Exit(0))
