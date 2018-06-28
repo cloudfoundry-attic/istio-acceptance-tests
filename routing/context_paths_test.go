@@ -22,26 +22,27 @@ type AppResponse struct {
 
 var _ = Describe("Context Paths", func() {
 	var (
-		domain            string
-		app               string
-		hostname          string
-		contextPath       string
-		helloRoutingAsset = "../assets/hello-golang"
+		domain              string
+		app                 string
+		hostname            string
+		contextPath         string
+		helloRoutingDroplet = "../assets/hello-golang.tgz"
 	)
 
 	BeforeEach(func() {
 		domain = istioDomain()
-		hostname = generator.PrefixedRandomName("IATS", "host")
+		hostname = generator.PrefixedRandomName("IATS", fmt.Sprintf("host-%d", time.Now().Unix()))
 		contextPath = "/nothing/matters"
 
 		app = generator.PrefixedRandomName("IATS", "APP")
 		Expect(cf.Cf("push", app,
-			"-p", helloRoutingAsset,
-			"-f", fmt.Sprintf("%s/manifest.yml", helloRoutingAsset),
 			"-n", hostname,
 			"-d", domain,
 			"--route-path", contextPath,
-			"-i", "1").Wait(defaultTimeout)).To(Exit(0))
+			"--droplet", helloRoutingDroplet,
+			"-i", "1",
+			"-m", "16M",
+			"-k", "75M").Wait(defaultTimeout)).To(Exit(0))
 	})
 
 	Context("when using a context path", func() {
@@ -142,12 +143,13 @@ var _ = Describe("Context Paths", func() {
 
 			otherApp = generator.PrefixedRandomName("IATS", "APP")
 			Expect(cf.Cf("push", otherApp,
-				"-p", helloRoutingAsset,
-				"-f", fmt.Sprintf("%s/manifest.yml", helloRoutingAsset),
 				"-n", hostname,
 				"-d", domain,
 				"--route-path", otherContextPath,
-				"-i", "1").Wait(defaultTimeout)).To(Exit(0))
+				"--droplet", helloRoutingDroplet,
+				"-i", "1",
+				"-m", "16M",
+				"-k", "75M").Wait(defaultTimeout)).To(Exit(0))
 		})
 
 		Context("when multiple apps have the same hostname", func() {

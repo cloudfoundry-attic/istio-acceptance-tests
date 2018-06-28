@@ -17,10 +17,10 @@ import (
 
 var _ = Describe("Round Robin", func() {
 	var (
-		domain            string
-		app               string
-		helloRoutingAsset = "../assets/hello-golang"
-		appURL            string
+		domain              string
+		app                 string
+		helloRoutingDroplet = "../assets/hello-golang.tgz"
+		appURL              string
 	)
 
 	BeforeEach(func() {
@@ -28,10 +28,11 @@ var _ = Describe("Round Robin", func() {
 
 		app = generator.PrefixedRandomName("IATS", "APP")
 		Expect(cf.Cf("push", app,
-			"-p", helloRoutingAsset,
-			"-f", fmt.Sprintf("%s/manifest.yml", helloRoutingAsset),
 			"-d", domain,
-			"-i", "1").Wait(defaultTimeout)).To(Exit(0))
+			"--droplet", helloRoutingDroplet,
+			"-i", "1",
+			"-m", "16M",
+			"-k", "75M").Wait(defaultTimeout)).To(Exit(0))
 		appURL = fmt.Sprintf("http://%s.%s", app, domain)
 
 		Eventually(func() (int, error) {
@@ -86,19 +87,20 @@ var _ = Describe("Round Robin", func() {
 
 	Context("when mapping a route to multiple apps", func() {
 		var (
-			holaRoutingAsset = "../assets/hola-golang"
-			appTwo           string
-			appTwoURL        string
-			hostname         string
+			holaRoutingDroplet = "../assets/hola-golang.tgz"
+			appTwo             string
+			appTwoURL          string
+			hostname           string
 		)
 
 		BeforeEach(func() {
 			appTwo = app + "-2"
 			Expect(cf.Cf("push", appTwo,
-				"-p", holaRoutingAsset,
-				"-f", fmt.Sprintf("%s/manifest.yml", holaRoutingAsset),
 				"-d", domain,
-				"-i", "1").Wait(defaultTimeout)).To(Exit(0))
+				"--droplet", holaRoutingDroplet,
+				"-i", "1",
+				"-m", "16M",
+				"-k", "75M").Wait(defaultTimeout)).To(Exit(0))
 			appTwoURL = fmt.Sprintf("http://%s.%s", appTwo, domain)
 
 			Eventually(func() (int, error) {

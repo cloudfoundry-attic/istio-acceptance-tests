@@ -17,10 +17,10 @@ import (
 
 var _ = Describe("Routing", func() {
 	var (
-		domain            string
-		app               string
-		helloRoutingAsset = "../assets/hello-golang"
-		appURL            string
+		domain              string
+		app                 string
+		helloRoutingDroplet = "../assets/hello-golang.tgz"
+		appURL              string
 	)
 
 	BeforeEach(func() {
@@ -28,10 +28,11 @@ var _ = Describe("Routing", func() {
 
 		app = generator.PrefixedRandomName("IATS", "APP")
 		Expect(cf.Cf("push", app,
-			"-p", helloRoutingAsset,
-			"-f", fmt.Sprintf("%s/manifest.yml", helloRoutingAsset),
 			"-d", domain,
-			"-i", "1").Wait(defaultTimeout)).To(Exit(0))
+			"--droplet", helloRoutingDroplet,
+			"-i", "1",
+			"-m", "16M",
+			"-k", "75M").Wait(defaultTimeout)).To(Exit(0))
 		appURL = fmt.Sprintf("http://%s.%s", app, domain)
 
 		Eventually(func() (int, error) {
@@ -56,7 +57,7 @@ var _ = Describe("Routing", func() {
 		)
 
 		BeforeEach(func() {
-			hostnameOne = generator.PrefixedRandomName("IATS", "HOST")
+			hostnameOne = generator.PrefixedRandomName("IATS", fmt.Sprintf("host-%d", time.Now().Unix()))
 			hostnameTwo = hostnameOne + "-2"
 
 			mapRouteOneCmd := cf.Cf("map-route", app, domain, "--hostname", hostnameOne)
