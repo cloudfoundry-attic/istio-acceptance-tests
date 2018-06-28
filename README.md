@@ -19,10 +19,10 @@ that it works with new updates
 ```sh
 cat << EOF > "${PWD}/config.json"
 {
-	"cf_api": "bosh-lite.com",
+	"cf_system_domain": "bosh-lite.com",
 	"cf_admin_user": "admin",
 	"cf_admin_password": <admin password>,
-	"cf_apps_domain": "apps.internal",
+	"cf_internal_apps_domain": "apps.internal",
 	"cf_istio_domain": "istio.<system-domain>",
 	"product_page_docker_tag": "cfrouting/examples-bookinfo-productpage-v1:latest",
 	"reviews_docker_tag": "cfrouting/examples-bookinfo-reviews-v3:latest",
