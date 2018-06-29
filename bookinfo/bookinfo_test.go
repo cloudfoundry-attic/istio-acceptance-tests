@@ -32,6 +32,9 @@ var _ = Describe("Bookinfo", func() {
 		c, err = config.NewConfig(configPath)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(c.Validate()).To(Succeed())
+		if c.CFInternalAppsDomain == "" {
+			c.CFInternalAppsDomain = config.DefaultInternalAppsDomain
+		}
 	})
 
 	AfterEach(func() {

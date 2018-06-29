@@ -1,6 +1,7 @@
 package bookinfo
 
 import (
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -35,6 +36,11 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	c, err := config.NewConfig(configPath)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(c.Validate()).To(Succeed())
+	if c.CFInternalAppsDomain == "" {
+		createCmd := cf.Cf("curl", "/v2/shared_domains", "-d", fmt.Sprintf("{\"name\": \"%s\", \"internal\": true}", config.DefaultInternalAppsDomain))
+		Expect(createCmd.Wait(defaultTimeout)).To(Exit(0))
+		c.CFInternalAppsDomain = config.DefaultInternalAppsDomain
+	}
 
 	TestSetup = workflowhelpers.NewTestSuiteSetup(c)
 	TestSetup.Setup()

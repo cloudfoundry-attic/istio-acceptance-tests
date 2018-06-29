@@ -45,6 +45,10 @@ var _ = BeforeSuite(func() {
 	Config, err = config.NewConfig(configPath)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(Config.Validate()).To(Succeed())
+	if Config.CFInternalAppsDomain == "" {
+		createCmd := cf.Cf("curl", "/v2/shared_domains", "-d", fmt.Sprintf("{\"name\": \"%s\", \"internal\": true}", config.DefaultInternalAppsDomain))
+		Expect(createCmd.Wait(defaultTimeout)).To(Exit(0))
+	}
 
 	TestSetup = workflowhelpers.NewTestSuiteSetup(Config)
 	TestSetup.Setup()
@@ -69,6 +73,9 @@ func organizationName() string {
 }
 
 func internalDomain() string {
+	if Config.CFInternalAppsDomain == "" {
+		return config.DefaultInternalAppsDomain
+	}
 	return Config.CFInternalAppsDomain
 }
 

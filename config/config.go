@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+const DefaultInternalAppsDomain = "apps.internal"
+
 type Config struct {
 	CFSystemDomain           string `json:"cf_system_domain"`
 	CFInternalAppsDomain     string `json:"cf_internal_apps_domain"`
@@ -48,9 +50,6 @@ func (c Config) Validate() error {
 	}
 	if c.AdminPassword == "" {
 		missingProperties = append(missingProperties, "cf_admin_password")
-	}
-	if c.CFInternalAppsDomain == "" {
-		missingProperties = append(missingProperties, "cf_internal_apps_domain")
 	}
 	if c.ProductPageDockerWithTag == "" {
 		c.ProductPageDockerWithTag = "istio/examples-bookinfo-productpage-v1:1.5.0"
