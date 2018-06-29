@@ -57,7 +57,7 @@ var _ = Describe("Routing", func() {
 		)
 
 		BeforeEach(func() {
-			hostnameOne = generator.PrefixedRandomName("IATS", fmt.Sprintf("host-%d", time.Now().Unix()))
+			hostnameOne = generator.PrefixedRandomName("IATS", "host")
 			hostnameTwo = hostnameOne + "-2"
 
 			mapRouteOneCmd := cf.Cf("map-route", app, domain, "--hostname", hostnameOne)

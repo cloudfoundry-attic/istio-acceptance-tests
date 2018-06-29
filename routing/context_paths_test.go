@@ -31,7 +31,7 @@ var _ = Describe("Context Paths", func() {
 
 	BeforeEach(func() {
 		domain = istioDomain()
-		hostname = generator.PrefixedRandomName("IATS", fmt.Sprintf("host-%d", time.Now().Unix()))
+		hostname = generator.PrefixedRandomName("IATS", "host")
 		contextPath = "/nothing/matters"
 
 		app = generator.PrefixedRandomName("IATS", "APP")
