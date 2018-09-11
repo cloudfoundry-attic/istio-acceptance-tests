@@ -23,8 +23,6 @@ var _ = Describe("Weighted Routing", func() {
 		app2                string
 		helloRoutingDroplet = "../assets/hello-golang.tgz"
 		holaRoutingDroplet  = "../assets/hola-golang.tgz"
-		app1URL             string
-		app2URL             string
 	)
 
 	BeforeEach(func() {
@@ -38,7 +36,6 @@ var _ = Describe("Weighted Routing", func() {
 			"-k", "75M",
 			"--no-route",
 			"--no-start").Wait(defaultTimeout)).To(Exit(0))
-		app1URL = fmt.Sprintf("http://%s.%s", app1, domain)
 
 		app2 = generator.PrefixedRandomName("IATS", "APP2")
 		Expect(cf.Cf("push", app2,
@@ -48,7 +45,6 @@ var _ = Describe("Weighted Routing", func() {
 			"-k", "75M",
 			"--no-route",
 			"--no-start").Wait(defaultTimeout)).To(Exit(0))
-		app2URL = fmt.Sprintf("http://%s.%s", app2, domain)
 	})
 
 	Context("when weights are assigned to routes", func() {
