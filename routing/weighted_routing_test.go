@@ -34,7 +34,8 @@ var _ = Describe("Weighted Routing", func() {
 			"-i", "1",
 			"-m", "16M",
 			"-k", "75M",
-			"--no-route",
+			"--hostname", app1,
+			"-d", domain,
 			"--no-start").Wait(defaultTimeout)).To(Exit(0))
 
 		app2 = generator.PrefixedRandomName("IATS", "APP2")
@@ -43,7 +44,8 @@ var _ = Describe("Weighted Routing", func() {
 			"-i", "1",
 			"-m", "16M",
 			"-k", "75M",
-			"--no-route",
+			"--hostname", app2,
+			"-d", domain,
 			"--no-start").Wait(defaultTimeout)).To(Exit(0))
 	})
 
@@ -64,8 +66,8 @@ var _ = Describe("Weighted Routing", func() {
 			appGuid1 = strings.TrimSpace(string(guid1))
 			guid2 := cf.Cf("app", app2, "--guid").Wait(defaultTimeout).Out.Contents()
 			appGuid2 = strings.TrimSpace(string(guid2))
-			routeGuid1 = routeGuid(spaceName(), hostname)
 
+			routeGuid1 = routeGuid(spaceName(), hostname)
 			routeURL = fmt.Sprintf("http://%s.%s", hostname, domain)
 		})
 
@@ -76,8 +78,15 @@ var _ = Describe("Weighted Routing", func() {
 			Expect(cf.Cf("start", app1).Wait(defaultTimeout)).To(Exit(0))
 			Expect(cf.Cf("start", app2).Wait(defaultTimeout)).To(Exit(0))
 
+			// Make sure both apps are individually routable
+			// before checking the shared weighted route
+			unweightedRouteUrl1 := fmt.Sprintf("http://%s.%s", app1, domain)
 			Eventually(func() (int, error) {
-				return getStatusCode(routeURL)
+				return getStatusCode(unweightedRouteUrl1)
+			}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
+			unweightedRouteUrl2 := fmt.Sprintf("http://%s.%s", app2, domain)
+			Eventually(func() (int, error) {
+				return getStatusCode(unweightedRouteUrl2)
 			}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
 
 			res, err := http.Get(routeURL)
