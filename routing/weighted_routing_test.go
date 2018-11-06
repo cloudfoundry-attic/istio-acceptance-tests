@@ -30,22 +30,24 @@ var _ = Describe("Weighted Routing", func() {
 
 		app1 = generator.PrefixedRandomName("IATS", "APP1")
 		Expect(cf.Cf("push", app1,
-			"--droplet", helloRoutingDroplet,
+			"-s", "cflinuxfs3",
 			"-i", "1",
 			"-m", "16M",
 			"-k", "75M",
-			"--hostname", app1,
 			"-d", domain,
+			"--hostname", app1,
+			"--droplet", helloRoutingDroplet,
 			"--no-start").Wait(defaultTimeout)).To(Exit(0))
 
 		app2 = generator.PrefixedRandomName("IATS", "APP2")
 		Expect(cf.Cf("push", app2,
-			"--droplet", holaRoutingDroplet,
+			"-s", "cflinuxfs3",
 			"-i", "1",
 			"-m", "16M",
 			"-k", "75M",
-			"--hostname", app2,
 			"-d", domain,
+			"--hostname", app2,
+			"--droplet", holaRoutingDroplet,
 			"--no-start").Wait(defaultTimeout)).To(Exit(0))
 	})
 

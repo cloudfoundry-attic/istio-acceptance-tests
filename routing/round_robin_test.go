@@ -29,6 +29,7 @@ var _ = Describe("Round Robin", func() {
 		app = generator.PrefixedRandomName("IATS", "APP")
 		Expect(cf.Cf("push", app,
 			"-d", domain,
+			"-s", "cflinuxfs3",
 			"--droplet", helloRoutingDroplet,
 			"-i", "1",
 			"-m", "16M",
@@ -97,6 +98,7 @@ var _ = Describe("Round Robin", func() {
 			appTwo = app + "-2"
 			Expect(cf.Cf("push", appTwo,
 				"-d", domain,
+				"-s", "cflinuxfs3",
 				"--droplet", holaRoutingDroplet,
 				"-i", "1",
 				"-m", "16M",

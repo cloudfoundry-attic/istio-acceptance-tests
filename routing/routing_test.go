@@ -29,6 +29,7 @@ var _ = Describe("Routing", func() {
 		app = generator.PrefixedRandomName("IATS", "APP")
 		Expect(cf.Cf("push", app,
 			"-d", domain,
+			"-s", "cflinuxfs3",
 			"--droplet", helloRoutingDroplet,
 			"-i", "1",
 			"-m", "16M",
