@@ -1,12 +1,13 @@
 package main
 
 import (
-	"example-apps/proxy/handlers"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
+
+	"code.cloudfoundry.org/istio-acceptance-tests/assets/proxy/handlers"
 )
 
 func launchHandler(port int, downloadHandler, digHandler, timedDigHandler, pingHandler, proxyHandler, statsHandler, uploadHandler, echoSourceIPHandler http.Handler) {

@@ -1,13 +1,15 @@
 package handlers_test
 
 import (
-	"example-apps/proxy/handlers"
 	"net/http"
 	"net/http/httptest"
 
+	"io/ioutil"
+
+	"code.cloudfoundry.org/istio-acceptance-tests/assets/proxy/handlers"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"io/ioutil"
 )
 
 var _ = Describe("EchoSourceIPHandler", func() {
