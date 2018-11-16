@@ -10,10 +10,12 @@ import (
 )
 
 const DefaultInternalAppsDomain = "apps.internal"
+const DefaultInternalIstioDomain = "istio.apps.internal"
 
 type Config struct {
 	CFSystemDomain           string `json:"cf_system_domain"`
 	CFInternalAppsDomain     string `json:"cf_internal_apps_domain"`
+	CFInternalIstioDomain    string `json:"cf_internal_istio_domain"`
 	IstioDomain              string `json:"cf_istio_domain"`
 	AdminUser                string `json:"cf_admin_user"`
 	AdminPassword            string `json:"cf_admin_password"`

@@ -83,6 +83,13 @@ func istioDomain() string {
 	return Config.IstioDomain
 }
 
+func internalIstioDomain() string {
+	if Config.CFInternalIstioDomain == "" {
+		return config.DefaultInternalIstioDomain
+	}
+	return Config.CFInternalIstioDomain
+}
+
 func systemDomain() string {
 	return Config.CFSystemDomain
 }
