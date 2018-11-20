@@ -19,9 +19,8 @@ var _ = Describe("Automatic Retries: Internal Routes", func() {
 		internalDomain       string
 		proxy                string
 		flakyBackend         string
-		proxyApp             = "../assets/proxy"
+		proxyDroplet         = "../assets/proxy.tgz"
 		flakyBackendApp      = "../assets/flaky-backend"
-		proxyManifest        = "../assets/proxy/manifest.yml"
 		flakyBackendManifest = "../assets/flaky-backend/manifest.yml"
 
 		internalRoute string
@@ -34,11 +33,13 @@ var _ = Describe("Automatic Retries: Internal Routes", func() {
 
 		proxy = generator.PrefixedRandomName("IATS", "APP1")
 		Expect(cf.Cf("push", proxy,
-			"-s", "cflinuxfs3",
 			"-d", domain,
+			"-s", "cflinuxfs3",
 			"--hostname", proxy,
-			"-f", proxyManifest,
-			"-p", proxyApp).Wait(defaultTimeout)).To(Exit(0))
+			"--droplet", proxyDroplet,
+			"-i", "1",
+			"-m", "32M",
+			"-k", "75M").Wait(defaultTimeout)).To(Exit(0))
 
 		flakyBackend = generator.PrefixedRandomName("IATS", "APP2")
 		Expect(cf.Cf("push", flakyBackend,
