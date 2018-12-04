@@ -21,6 +21,7 @@ type Config struct {
 	ReviewsDockerWithTag     string `json:"reviews_docker_tag"`
 	RatingsDockerWithTag     string `json:"ratings_docker_tag"`
 	DetailsDockerWithTag     string `json:"details_docker_tag"`
+	WildcardCa               string `json:"wildcard_ca"`
 }
 
 func NewConfig(path string) (Config, error) {
@@ -50,6 +51,9 @@ func (c Config) Validate() error {
 	}
 	if c.AdminPassword == "" {
 		missingProperties = append(missingProperties, "cf_admin_password")
+	}
+	if c.WildcardCa == "" {
+		missingProperties = append(missingProperties, "wildcard_ca")
 	}
 	if c.ProductPageDockerWithTag == "" {
 		c.ProductPageDockerWithTag = "istio/examples-bookinfo-productpage-v1:1.5.0"

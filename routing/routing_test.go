@@ -2,6 +2,7 @@ package routing_test
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net/http"
 	"time"
@@ -39,6 +40,29 @@ var _ = Describe("Routing", func() {
 		Eventually(func() (int, error) {
 			return getStatusCode(appURL)
 		}, defaultTimeout).Should(Equal(http.StatusOK))
+	})
+
+	Context("when an app is pushed to the istio domain with frontend certs", func() {
+		It("response to HTTPS requests", func() {
+			caCertPool := x509.NewCertPool()
+			caCertPool.AppendCertsFromPEM([]byte(Config.WildcardCa))
+
+			client := &http.Client{
+				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{
+						RootCAs: caCertPool,
+					},
+				},
+			}
+			// Frontend wildcard certs are setup in the manifest for the env
+			httpsAppURL := fmt.Sprintf("https://%s.%s", app, domain)
+
+			Eventually(func() (int, error) {
+				res, err := client.Get(httpsAppURL)
+				res.Body.Close()
+				return res.StatusCode, err
+			}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
+		})
 	})
 
 	Context("when the app is stopped", func() {
