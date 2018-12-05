@@ -42,6 +42,12 @@ var _ = Describe("Routing", func() {
 	})
 
 	Context("when an app is pushed to the istio domain with frontend certs", func() {
+		BeforeEach(func() {
+			if Config.WildcardCa == "" {
+				Skip("skipping tls termination test, no wildcard ca supplied")
+			}
+		})
+
 		It("response to HTTPS requests", func() {
 			caCertPool := x509.NewCertPool()
 			caCertPool.AppendCertsFromPEM([]byte(Config.WildcardCa))

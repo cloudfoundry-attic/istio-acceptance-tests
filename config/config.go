@@ -52,9 +52,6 @@ func (c Config) Validate() error {
 	if c.AdminPassword == "" {
 		missingProperties = append(missingProperties, "cf_admin_password")
 	}
-	if c.WildcardCa == "" {
-		missingProperties = append(missingProperties, "wildcard_ca")
-	}
 	if c.ProductPageDockerWithTag == "" {
 		c.ProductPageDockerWithTag = "istio/examples-bookinfo-productpage-v1:1.5.0"
 	}
