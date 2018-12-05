@@ -9,7 +9,6 @@ import (
 
 	"github.com/cloudfoundry-incubator/cf-test-helpers/cf"
 	"github.com/cloudfoundry-incubator/cf-test-helpers/generator"
-	"github.com/cloudfoundry-incubator/cf-test-helpers/workflowhelpers"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -146,23 +145,6 @@ var _ = Describe("Routing", func() {
 	})
 
 	Context("route mappings", func() {
-		It("can map a route with a private domain", func() {
-			var privateHostname string
-			privateDomain := fmt.Sprintf("%s.%s", generator.PrefixedRandomName("iats", "private"), domain)
-
-			workflowhelpers.AsUser(adminUserContext(), defaultTimeout, func() {
-				Expect(cf.Cf("create-domain", organizationName(), privateDomain).Wait(defaultTimeout)).To(Exit(0))
-			})
-
-			privateHostname = fmt.Sprintf("someApp-%d", time.Now().UnixNano())
-			Expect(cf.Cf("map-route", app, privateDomain, "--hostname", privateHostname).Wait(defaultTimeout)).To(Exit(0))
-
-			Eventually(func() (int, error) {
-				appURL := fmt.Sprintf("http://%s.%s", privateHostname, privateDomain)
-				return getStatusCode(appURL)
-			}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
-		})
-
 		Context("mapping a route using both CAPI endpoints", func() {
 			var (
 				appGuid  string
