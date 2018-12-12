@@ -20,8 +20,9 @@ cat << EOF > "${PWD}/config.json"
 	"product_page_docker_tag": "cfrouting/examples-bookinfo-productpage-v1:latest",
 	"reviews_docker_tag": "cfrouting/examples-bookinfo-reviews-v3:latest",
 	"ratings_docker_tag": "istio/examples-bookinfo-ratings-v1:1.5.0",
-	"details_docker_tag": "istio/examples-bookinfo-details-v1:1.5.0"
-	"wilcard_ca": "<envoy_wildcard_ca.ca>"
+	"details_docker_tag": "istio/examples-bookinfo-details-v1:1.5.0",
+	"include_internal_route_tests": false,
+	"wildcard_ca": "<envoy_wildcard_ca.ca>"
 }
 EOF
 ```
@@ -29,6 +30,10 @@ EOF
 Note: `wildcard_ca` is an optional property. It should be be configured if TLS
 is enabled between clients and the istio-router (enabled by using the
 `enable-tls-termination` ops-file).
+
+Note: `include_internal_route_tests` is an optional property. If set to true, the
+internal route tests will run. This will require the Envoy sidecar to be in the
+network datapath (enabled by using the `enable-sidecar-proxying` ops-file).
 
 ## Running Tests
 ```sh
