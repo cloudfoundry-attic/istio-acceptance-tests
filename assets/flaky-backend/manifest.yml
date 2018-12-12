@@ -1,0 +1,6 @@
+---
+applications:
+  - name: flakey-backend
+    memory: 64M
+    disk_quota: 128M
+    buildpack: ruby_buildpack
