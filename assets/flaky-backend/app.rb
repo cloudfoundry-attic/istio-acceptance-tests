@@ -8,7 +8,7 @@ get "/" do
     status 200
     body 'Success!'
   else
-    status 500
+    status 503
     body 'Failure!'
   end
 end

@@ -7,7 +7,6 @@ import (
 
 	"github.com/cloudfoundry-incubator/cf-test-helpers/cf"
 	"github.com/cloudfoundry-incubator/cf-test-helpers/generator"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gexec"
@@ -59,6 +58,7 @@ var _ = Describe("Automatic Retries: Internal Routes", func() {
 		internalRoute = fmt.Sprintf("%s.%s:8080", flakyBackend, internalDomain)
 		routeURL = fmt.Sprintf("http://%s.%s/proxy/%s", proxy, domain, internalRoute)
 
+		By("waiting for the app to start and become reachable")
 		Eventually(func() (int, error) {
 			return getStatusCode(routeURL)
 		}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
