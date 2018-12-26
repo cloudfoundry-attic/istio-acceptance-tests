@@ -31,7 +31,7 @@ var _ = Describe("Automatic Retries: Internal Routes", func() {
 			Skip("'include_internal_route_tests' is false in config. Skipping automatic retries test.")
 		}
 
-		domain = istioDomain()
+		domain = systemDomain()
 		internalDomain = internalIstioDomain()
 
 		proxy = generator.PrefixedRandomName("IATS", "APP1")

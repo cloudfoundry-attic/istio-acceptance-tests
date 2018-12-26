@@ -17,10 +17,10 @@ cat << EOF > "${PWD}/config.json"
 	"cf_internal_apps_domain": "apps.internal",
 	"cf_internal_istio_domain": "istio.apps.internal",
 	"cf_istio_domain": "istio.<system-domain>",
-	"product_page_docker_tag": "cfrouting/examples-bookinfo-productpage-v1:latest",
-	"reviews_docker_tag": "cfrouting/examples-bookinfo-reviews-v3:latest",
-	"ratings_docker_tag": "istio/examples-bookinfo-ratings-v1:1.5.0",
-	"details_docker_tag": "istio/examples-bookinfo-details-v1:1.5.0",
+  "product_page_docker_tag": "istio/examples-bookinfo-productpage-v1:1.8.0",
+  "reviews_docker_tag": "xanderstrike/istio-bookinfo-reviews-v3:latest",
+  "ratings_docker_tag": "istio/examples-bookinfo-ratings-v1:1.8.0",
+  "details_docker_tag": "istio/examples-bookinfo-details-v1:1.8.0",
 	"include_internal_route_tests": false,
 	"wildcard_ca": "<envoy_wildcard_ca.ca>"
 }
