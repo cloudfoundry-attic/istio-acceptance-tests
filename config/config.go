@@ -13,18 +13,17 @@ const DefaultInternalAppsDomain = "apps.internal"
 const DefaultInternalIstioDomain = "istio.apps.internal"
 
 type Config struct {
-	CFSystemDomain            string `json:"cf_system_domain"`
-	CFInternalAppsDomain      string `json:"cf_internal_apps_domain"`
-	CFInternalIstioDomain     string `json:"cf_internal_istio_domain"`
-	IstioDomain               string `json:"cf_istio_domain"`
-	AdminUser                 string `json:"cf_admin_user"`
-	AdminPassword             string `json:"cf_admin_password"`
-	ProductPageDockerWithTag  string `json:"product_page_docker_tag"`
-	ReviewsDockerWithTag      string `json:"reviews_docker_tag"`
-	RatingsDockerWithTag      string `json:"ratings_docker_tag"`
-	DetailsDockerWithTag      string `json:"details_docker_tag"`
-	WildcardCa                string `json:"wildcard_ca"`
-	IncludeInternalRouteTests bool   `json:"include_internal_route_tests"`
+	CFSystemDomain           string `json:"cf_system_domain"`
+	CFInternalAppsDomain     string `json:"cf_internal_apps_domain"`
+	CFInternalIstioDomain    string `json:"cf_internal_istio_domain"`
+	IstioDomain              string `json:"cf_istio_domain"`
+	AdminUser                string `json:"cf_admin_user"`
+	AdminPassword            string `json:"cf_admin_password"`
+	ProductPageDockerWithTag string `json:"product_page_docker_tag"`
+	ReviewsDockerWithTag     string `json:"reviews_docker_tag"`
+	RatingsDockerWithTag     string `json:"ratings_docker_tag"`
+	DetailsDockerWithTag     string `json:"details_docker_tag"`
+	WildcardCa               string `json:"wildcard_ca"`
 }
 
 func NewConfig(path string) (Config, error) {
@@ -83,10 +82,6 @@ func (c Config) GetAdminPassword() string {
 
 func (c Config) GetAdminUser() string {
 	return c.AdminUser
-}
-
-func (c Config) GetIncludeInternalRouteTests() bool {
-	return c.IncludeInternalRouteTests
 }
 
 func (c Config) GetConfigurableTestPassword() string            { return "" }

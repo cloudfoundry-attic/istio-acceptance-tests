@@ -27,10 +27,6 @@ var _ = Describe("Automatic Retries: Internal Routes", func() {
 	)
 
 	BeforeEach(func() {
-		if !Config.GetIncludeInternalRouteTests() {
-			Skip("'include_internal_route_tests' is false in config. Skipping automatic retries test.")
-		}
-
 		domain = istioDomain()
 		internalDomain = internalIstioDomain()
 
