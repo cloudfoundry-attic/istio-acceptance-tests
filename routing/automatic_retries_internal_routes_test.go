@@ -30,7 +30,7 @@ var _ = Describe("Automatic Retries: Internal Routes", func() {
 		domain = istioDomain()
 		internalDomain = internalIstioDomain()
 
-		proxy = generator.PrefixedRandomName("IATS", "APP1")
+		proxy = generator.PrefixedRandomName("iats", "app1")
 		Expect(cf.Cf("push", proxy,
 			"-d", domain,
 			"-s", "cflinuxfs3",
@@ -40,7 +40,7 @@ var _ = Describe("Automatic Retries: Internal Routes", func() {
 			"-m", "32M",
 			"-k", "75M").Wait(defaultTimeout)).To(Exit(0))
 
-		flakyBackend = generator.PrefixedRandomName("IATS", "APP2")
+		flakyBackend = generator.PrefixedRandomName("iats", "app2")
 		Expect(cf.Cf("push", flakyBackend,
 			"-s", "cflinuxfs3",
 			"-d", internalDomain,
