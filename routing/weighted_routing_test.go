@@ -102,109 +102,55 @@ var _ = Describe("Weighted Routing", func() {
 		})
 
 		It("balances routes according to the weights assigned to them", func() {
-			mapWeightedRoute(internalRouteGuid, appGuid1, 2)
-			mapWeightedRoute(internalRouteGuid, appGuid2, 2)
+			mapWeightedRoute(internalRouteGuid, appGuid1, 1)
+			mapWeightedRoute(internalRouteGuid, appGuid2, 9)
 
 			Expect(cf.Cf("start", app1).Wait(defaultTimeout)).To(Exit(0))
 			Expect(cf.Cf("start", app2).Wait(defaultTimeout)).To(Exit(0))
 
 			// Make sure both apps are individually routable
 			// before checking the shared weighted route
-			unweightedRouteUrl1 := fmt.Sprintf("http://%s.%s/proxy/%s.%s:8080", proxyFrontend, domain, app1, internalDomain)
-			Eventually(func() (int, error) {
-				return getStatusCode(unweightedRouteUrl1)
-			}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
-			unweightedRouteUrl2 := fmt.Sprintf("http://%s.%s/proxy/%s.%s:8080", proxyFrontend, domain, app2, internalDomain)
-			Eventually(func() (int, error) {
-				return getStatusCode(unweightedRouteUrl2)
-			}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
+			isUpAndRoutable(fmt.Sprintf("http://%s.%s/proxy/%s.%s:8080", proxyFrontend, domain, app1, internalDomain))
+			isUpAndRoutable(fmt.Sprintf("http://%s.%s/proxy/%s.%s:8080", proxyFrontend, domain, app2, internalDomain))
 
-			res, err := http.Get(proxiedInternalRouteURL)
-			Expect(err).ToNot(HaveOccurred())
-			defer res.Body.Close()
-			body, err := ioutil.ReadAll(res.Body)
-			Expect(err).ToNot(HaveOccurred())
-
-			type AppResponse struct {
-				Greeting string `json:"greeting"`
+			var app1RespCount, app2RespCount int
+			for i := 0; i < 100; i++ {
+				switch greetingFromApp(proxiedInternalRouteURL) {
+				case "hello":
+					app1RespCount++
+				case "hola":
+					app2RespCount++
+				}
 			}
 
-			var app1Resp AppResponse
-			err = json.Unmarshal(body, &app1Resp)
-			Expect(err).ToNot(HaveOccurred())
-
-			Eventually(func() (AppResponse, error) {
-				res, err := http.Get(proxiedInternalRouteURL)
-				if err != nil {
-					return AppResponse{}, err
-				}
-
-				body, err := ioutil.ReadAll(res.Body)
-				if err != nil {
-					return AppResponse{}, err
-				}
-
-				var app2Resp AppResponse
-				err = json.Unmarshal(body, &app2Resp)
-				if err != nil {
-					return AppResponse{}, err
-				}
-
-				return app2Resp, nil
-			}, defaultTimeout, time.Second).ShouldNot(Equal(app1Resp))
+			Expect(app1RespCount).To(BeNumerically("~", 10, 10), `given a 10% route weight for app 1, the expected response count is ~10`)
+			Expect(app2RespCount).To(BeNumerically("~", 90, 10), `given a 90% route weight for app 2, the expected response count is ~90`)
 		})
 
 		It("balances routes according to the weights assigned to them", func() {
-			mapWeightedRoute(externalRouteGuid, appGuid1, 2)
-			mapWeightedRoute(externalRouteGuid, appGuid2, 2)
+			mapWeightedRoute(externalRouteGuid, appGuid1, 1)
+			mapWeightedRoute(externalRouteGuid, appGuid2, 9)
 
 			Expect(cf.Cf("start", app1).Wait(defaultTimeout)).To(Exit(0))
 			Expect(cf.Cf("start", app2).Wait(defaultTimeout)).To(Exit(0))
 
 			// Make sure both apps are individually routable
 			// before checking the shared weighted route
-			unweightedRouteUrl1 := fmt.Sprintf("http://%s.%s", app1, domain)
-			Eventually(func() (int, error) {
-				return getStatusCode(unweightedRouteUrl1)
-			}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
-			unweightedRouteUrl2 := fmt.Sprintf("http://%s.%s", app2, domain)
-			Eventually(func() (int, error) {
-				return getStatusCode(unweightedRouteUrl2)
-			}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
+			isUpAndRoutable(fmt.Sprintf("http://%s.%s", app1, domain))
+			isUpAndRoutable(fmt.Sprintf("http://%s.%s", app2, domain))
 
-			res, err := http.Get(externalRouteURL)
-			Expect(err).ToNot(HaveOccurred())
-			defer res.Body.Close()
-			body, err := ioutil.ReadAll(res.Body)
-			Expect(err).ToNot(HaveOccurred())
-
-			type AppResponse struct {
-				Greeting string `json:"greeting"`
+			var app1RespCount, app2RespCount int
+			for i := 0; i < 100; i++ {
+				switch greetingFromApp(externalRouteURL) {
+				case "hello":
+					app1RespCount++
+				case "hola":
+					app2RespCount++
+				}
 			}
 
-			var app1Resp AppResponse
-			err = json.Unmarshal(body, &app1Resp)
-			Expect(err).ToNot(HaveOccurred())
-
-			Eventually(func() (AppResponse, error) {
-				res, err := http.Get(externalRouteURL)
-				if err != nil {
-					return AppResponse{}, err
-				}
-
-				body, err := ioutil.ReadAll(res.Body)
-				if err != nil {
-					return AppResponse{}, err
-				}
-
-				var app2Resp AppResponse
-				err = json.Unmarshal(body, &app2Resp)
-				if err != nil {
-					return AppResponse{}, err
-				}
-
-				return app2Resp, nil
-			}, defaultTimeout, time.Second).ShouldNot(Equal(app1Resp))
+			Expect(app1RespCount).To(BeNumerically("~", 10, 10), `given a 10% route weight for app 1, the expected response count is ~10`)
+			Expect(app2RespCount).To(BeNumerically("~", 90, 10), `given a 90% route weight for app 2, the expected response count is ~90`)
 		})
 	})
 })
@@ -223,4 +169,28 @@ func mapWeightedRoute(routeGuid, appGuid string, weight int) {
 					"weight": %d
 				}`, appGuid, routeGuid, weight),
 	).Wait(defaultTimeout)).To(Exit(0))
+}
+
+func isUpAndRoutable(route string) {
+	Eventually(func() (int, error) {
+		return getStatusCode(route)
+	}, defaultTimeout, time.Second).Should(Equal(http.StatusOK))
+}
+
+func greetingFromApp(route string) string {
+	res, err := http.Get(route)
+	Expect(err).ToNot(HaveOccurred())
+	defer res.Body.Close()
+	body, err := ioutil.ReadAll(res.Body)
+	Expect(err).ToNot(HaveOccurred())
+
+	type AppResponse struct {
+		Greeting string `json:"greeting"`
+	}
+
+	var appResp AppResponse
+	err = json.Unmarshal(body, &appResp)
+	Expect(err).ToNot(HaveOccurred())
+
+	return appResp.Greeting
 }
