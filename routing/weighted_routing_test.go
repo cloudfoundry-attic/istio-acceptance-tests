@@ -101,7 +101,7 @@ var _ = Describe("Weighted Routing", func() {
 			proxiedInternalRouteURL = fmt.Sprintf("http://%s.%s/proxy/%s.%s:8080", proxyFrontend, domain, internalHostname, internalDomain)
 		})
 
-		It("balances routes according to the weights assigned to them", func() {
+		It("balances internal routes according to the weights assigned to them", func() {
 			mapWeightedRoute(internalRouteGuid, appGuid1, 1)
 			mapWeightedRoute(internalRouteGuid, appGuid2, 9)
 
@@ -113,6 +113,7 @@ var _ = Describe("Weighted Routing", func() {
 			isUpAndRoutable(fmt.Sprintf("http://%s.%s/proxy/%s.%s:8080", proxyFrontend, domain, app1, internalDomain))
 			isUpAndRoutable(fmt.Sprintf("http://%s.%s/proxy/%s.%s:8080", proxyFrontend, domain, app2, internalDomain))
 
+			time.Sleep(60 * time.Second)
 			var app1RespCount, app2RespCount int
 			for i := 0; i < 100; i++ {
 				switch greetingFromApp(proxiedInternalRouteURL) {
@@ -127,7 +128,7 @@ var _ = Describe("Weighted Routing", func() {
 			Expect(app2RespCount).To(BeNumerically("~", 90, 10), `given a 90% route weight for app 2, the expected response count is ~90`)
 		})
 
-		It("balances routes according to the weights assigned to them", func() {
+		It("balances external routes according to the weights assigned to them", func() {
 			mapWeightedRoute(externalRouteGuid, appGuid1, 1)
 			mapWeightedRoute(externalRouteGuid, appGuid2, 9)
 
