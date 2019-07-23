@@ -19,7 +19,6 @@ import (
 var _ = Describe("Weighted Routing", func() {
 	var (
 		domain              string
-		internalDomain      string
 		app1                string
 		app2                string
 		proxyFrontend       string
@@ -30,7 +29,6 @@ var _ = Describe("Weighted Routing", func() {
 
 	BeforeEach(func() {
 		domain = istioDomain()
-		internalDomain = internalIstioDomain()
 
 		proxyFrontend = generator.PrefixedRandomName("iats", "proxy1")
 		Expect(cf.Cf("push", proxyFrontend,
@@ -52,7 +50,6 @@ var _ = Describe("Weighted Routing", func() {
 			"--hostname", app1,
 			"--droplet", helloRoutingDroplet,
 			"--no-start").Wait(defaultTimeout)).To(Exit(0))
-		Expect(cf.Cf("map-route", app1, internalDomain, "--hostname", app1).Wait(defaultTimeout)).To(Exit(0))
 
 		app2 = generator.PrefixedRandomName("iats", "app2")
 		Expect(cf.Cf("push", app2,
@@ -64,7 +61,6 @@ var _ = Describe("Weighted Routing", func() {
 			"--hostname", app2,
 			"--droplet", holaRoutingDroplet,
 			"--no-start").Wait(defaultTimeout)).To(Exit(0))
-		Expect(cf.Cf("map-route", app2, internalDomain, "--hostname", app2).Wait(defaultTimeout)).To(Exit(0))
 
 		Expect(cf.Cf("add-network-policy", proxyFrontend, "--destination-app", app1).Wait(defaultTimeout)).To(Exit(0))
 		Expect(cf.Cf("add-network-policy", proxyFrontend, "--destination-app", app2).Wait(defaultTimeout)).To(Exit(0))
@@ -75,19 +71,13 @@ var _ = Describe("Weighted Routing", func() {
 			appGuid1                string
 			appGuid2                string
 			externalHostname        string
-			internalHostname        string
 			externalRouteGuid       string
-			internalRouteGuid       string
 			externalRouteURL        string
-			proxiedInternalRouteURL string
 		)
 
 		BeforeEach(func() {
 			externalHostname = generator.PrefixedRandomName("greetings", "app")
 			Expect(cf.Cf("create-route", spaceName(), domain, "--hostname", externalHostname).Wait(defaultTimeout)).To(Exit(0))
-
-			internalHostname = generator.PrefixedRandomName("greetings", "app")
-			Expect(cf.Cf("create-route", spaceName(), internalDomain, "--hostname", internalHostname).Wait(defaultTimeout)).To(Exit(0))
 
 			guid1 := cf.Cf("app", app1, "--guid").Wait(defaultTimeout).Out.Contents()
 			appGuid1 = strings.TrimSpace(string(guid1))
@@ -96,36 +86,6 @@ var _ = Describe("Weighted Routing", func() {
 
 			externalRouteGuid = routeGuid(spaceName(), externalHostname)
 			externalRouteURL = fmt.Sprintf("http://%s.%s", externalHostname, domain)
-
-			internalRouteGuid = routeGuid(spaceName(), internalHostname)
-			proxiedInternalRouteURL = fmt.Sprintf("http://%s.%s/proxy/%s.%s:8080", proxyFrontend, domain, internalHostname, internalDomain)
-		})
-
-		It("balances internal routes according to the weights assigned to them", func() {
-			mapWeightedRoute(internalRouteGuid, appGuid1, 1)
-			mapWeightedRoute(internalRouteGuid, appGuid2, 9)
-
-			Expect(cf.Cf("start", app1).Wait(defaultTimeout)).To(Exit(0))
-			Expect(cf.Cf("start", app2).Wait(defaultTimeout)).To(Exit(0))
-
-			// Make sure both apps are individually routable
-			// before checking the shared weighted route
-			isUpAndRoutable(fmt.Sprintf("http://%s.%s/proxy/%s.%s:8080", proxyFrontend, domain, app1, internalDomain))
-			isUpAndRoutable(fmt.Sprintf("http://%s.%s/proxy/%s.%s:8080", proxyFrontend, domain, app2, internalDomain))
-
-			time.Sleep(60 * time.Second)
-			var app1RespCount, app2RespCount int
-			for i := 0; i < 100; i++ {
-				switch greetingFromApp(proxiedInternalRouteURL) {
-				case "hello":
-					app1RespCount++
-				case "hola":
-					app2RespCount++
-				}
-			}
-
-			Expect(app1RespCount).To(BeNumerically("~", 10, 10), `given a 10% route weight for app 1, the expected response count is ~10`)
-			Expect(app2RespCount).To(BeNumerically("~", 90, 10), `given a 90% route weight for app 2, the expected response count is ~90`)
 		})
 
 		It("balances external routes according to the weights assigned to them", func() {
