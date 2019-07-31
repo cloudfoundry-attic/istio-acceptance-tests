@@ -159,12 +159,12 @@ var _ = Describe("Weighted Routing", func() {
 	})
 })
 
-func addWeightedDestinations(routeGuid, appGuidToWeights map[string]int) {
+func addWeightedDestinations(routeGUID string, appGUIDToWeights map[string]int) {
 	var destinationsBody strings.Builder
-	counter := len(appGuidToWeights)
-	for appGuid, weight := range appGuidToWeights {
-		destinationsBody.WriteString(fmt.Sprintf(`{"app":{"guid":%s},"weight":%s}`, appGuid, weight))
-		counter = counter - 1
+	counter := len(appGUIDToWeights)
+	for appGUID, weight := range appGUIDToWeights {
+		destinationsBody.WriteString(fmt.Sprintf(`{"app":{"guid":%s},"weight":%d}`, appGUID, weight))
+		counter--
 		if counter > 0 {
 			destinationsBody.WriteString(",")
 		}
@@ -173,7 +173,7 @@ func addWeightedDestinations(routeGuid, appGuidToWeights map[string]int) {
 	Expect(cf.Cf(
 		"curl",
 		"-f",
-		fmt.Sprintf("/v3/routes/%s/destinations", routeGuid),
+		fmt.Sprintf("/v3/routes/%s/destinations", routeGUID),
 		"-H", "Content-type: application/json",
 		"-X", "POST",
 		"-d", fmt.Sprintf(`{
