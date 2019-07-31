@@ -175,7 +175,7 @@ func addWeightedDestinations(routeGUID string, appGUIDToWeights map[string]int) 
 		"-f",
 		fmt.Sprintf("/v3/routes/%s/destinations", routeGUID),
 		"-H", "Content-type: application/json",
-		"-X", "POST",
+		"-X", "PATCH",
 		"-d", fmt.Sprintf(`{
 					"destinations": [%s]
 				}`, destinationsBody.String()),
