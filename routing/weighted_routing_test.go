@@ -80,6 +80,7 @@ var _ = Describe("Weighted Routing", func() {
 			internalRouteGuid       string
 			externalRouteURL        string
 			proxiedInternalRouteURL string
+			destinationsToWeights   map[string]int
 		)
 
 		BeforeEach(func() {
@@ -99,11 +100,14 @@ var _ = Describe("Weighted Routing", func() {
 
 			internalRouteGuid = routeGuid(spaceName(), internalHostname)
 			proxiedInternalRouteURL = fmt.Sprintf("http://%s.%s/proxy/%s.%s:8080", proxyFrontend, domain, internalHostname, internalDomain)
+
+			destinationsToWeights = make(map[string]int)
+			destinationsToWeights[appGuid1] = 1
+			destinationsToWeights[appGuid2] = 9
 		})
 
 		It("balances internal routes according to the weights assigned to them", func() {
-			mapWeightedRoute(internalRouteGuid, appGuid1, 1)
-			mapWeightedRoute(internalRouteGuid, appGuid2, 9)
+			addWeightedDestinations(internalRouteGuid, destinationsToWeights)
 
 			Expect(cf.Cf("start", app1).Wait(defaultTimeout)).To(Exit(0))
 			Expect(cf.Cf("start", app2).Wait(defaultTimeout)).To(Exit(0))
@@ -129,8 +133,7 @@ var _ = Describe("Weighted Routing", func() {
 		})
 
 		It("balances external routes according to the weights assigned to them", func() {
-			mapWeightedRoute(externalRouteGuid, appGuid1, 1)
-			mapWeightedRoute(externalRouteGuid, appGuid2, 9)
+			addWeightedDestinations(externalRouteGuid, destinationsToWeights)
 
 			Expect(cf.Cf("start", app1).Wait(defaultTimeout)).To(Exit(0))
 			Expect(cf.Cf("start", app2).Wait(defaultTimeout)).To(Exit(0))
@@ -156,19 +159,26 @@ var _ = Describe("Weighted Routing", func() {
 	})
 })
 
-func mapWeightedRoute(routeGuid, appGuid string, weight int) {
+func addWeightedDestinations(routeGuid, appGuidToWeights map[string]int) {
+	var destinationsBody strings.Builder
+	counter := len(appGuidToWeights)
+	for appGuid, weight := range appGuidToWeights {
+		destinationsBody.WriteString(fmt.Sprintf(`{"app":{"guid":%s},"weight":%s}`, appGuid, weight))
+		counter = counter - 1
+		if counter > 0 {
+			destinationsBody.WriteString(",")
+		}
+	}
+
 	Expect(cf.Cf(
 		"curl",
-		"/v3/route_mappings",
+		"-f",
+		fmt.Sprintf("/v3/routes/%s/destinations", routeGuid),
 		"-H", "Content-type: application/json",
 		"-X", "POST",
 		"-d", fmt.Sprintf(`{
-					"relationships": {
-						"app": { "guid": "%s" },
-						"route": { "guid": "%s" }
-					},
-					"weight": %d
-				}`, appGuid, routeGuid, weight),
+					"destinations": [%s]
+				}`, destinationsBody.String()),
 	).Wait(defaultTimeout)).To(Exit(0))
 }
 
