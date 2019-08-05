@@ -128,8 +128,8 @@ var _ = Describe("Weighted Routing", func() {
 				}
 			}
 
-			Expect(app1RespCount).To(BeNumerically("~", 10, 10), `given a 10% route weight for app 1, the expected response count is ~10`)
-			Expect(app2RespCount).To(BeNumerically("~", 90, 10), `given a 90% route weight for app 2, the expected response count is ~90`)
+			Expect(app1RespCount).To(BeNumerically("~", 10, 10), `given a 10%% route weight for app 1, the expected response count is ~10`)
+			Expect(app2RespCount).To(BeNumerically("~", 90, 10), `given a 90%% route weight for app 2, the expected response count is ~90`)
 		})
 
 		It("balances external routes according to the weights assigned to them", func() {
@@ -153,8 +153,8 @@ var _ = Describe("Weighted Routing", func() {
 				}
 			}
 
-			Expect(app1RespCount).To(BeNumerically("~", 10, 10), `given a 10% route weight for app 1, the expected response count is ~10`)
-			Expect(app2RespCount).To(BeNumerically("~", 90, 10), `given a 90% route weight for app 2, the expected response count is ~90`)
+			Expect(app1RespCount).To(BeNumerically("~", 10, 10), `given a 10%% route weight for app 1, the expected response count is ~10`)
+			Expect(app2RespCount).To(BeNumerically("~", 90, 10), `given a 90%% route weight for app 2, the expected response count is ~90`)
 		})
 	})
 })
